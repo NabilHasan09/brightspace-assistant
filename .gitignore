@@ -1,0 +1,33 @@
+# Compiled binaries
+/bin/
+/brightspace-mcp
+/ingest
+/chat
+*.exe
+
+# Go
+*.test
+*.out
+coverage.*
+vendor/
+
+# Local content store — course materials are personal and FERPA-sensitive.
+# Never commit ingested documents, extracted text, or embeddings.
+/data/
+.cuny-ai/
+*.db
+*.sqlite
+
+# Secrets — Anthropic, Voyage, and D2L OAuth credentials
+.env
+.env.*
+!.env.example
+*.pem
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
