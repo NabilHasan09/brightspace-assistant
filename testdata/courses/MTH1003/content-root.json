@@ -1,0 +1,102 @@
+[
+  {
+    "Id": 771,
+    "Title": "Week 8: Integration by Parts",
+    "ShortTitle": "",
+    "Type": 0,
+    "Description": {
+      "Text": "Integration by parts, reduction formulas, and worked examples.",
+      "Html": "<p>Integration by parts, reduction formulas, and worked examples.</p>"
+    },
+    "ParentModuleId": null,
+    "SortOrder": 0,
+    "LastModifiedDate": "2026-03-02T14:12:03.000Z",
+    "IsHidden": false,
+    "IsLocked": false,
+    "ModuleStartDate": "2026-03-02T05:00:00.000Z",
+    "ModuleEndDate": null,
+    "ModuleDueDate": null,
+    "Structure": [
+      {
+        "Id": 8842,
+        "Title": "Lecture 8 Slides",
+        "ShortTitle": "",
+        "Type": 1,
+        "TopicType": 1,
+        "Url": "/content/enforced/6001-MTH1003/lecture-8-slides.txt",
+        "Description": {
+          "Text": "Slides covering the integration by parts formula.",
+          "Html": "<p>Slides covering the integration by parts formula.</p>"
+        },
+        "ParentModuleId": 771,
+        "SortOrder": 0,
+        "LastModifiedDate": "2026-03-02T14:12:03.000Z",
+        "IsHidden": false,
+        "IsLocked": false,
+        "StartDate": null,
+        "EndDate": null,
+        "DueDate": null
+      },
+      {
+        "Id": 8843,
+        "Title": "Integration Techniques Reference",
+        "ShortTitle": "",
+        "Type": 1,
+        "TopicType": 2,
+        "Url": "https://example.edu/calculus/integration-techniques",
+        "Description": {
+          "Text": "External reference site. Not required reading.",
+          "Html": "<p>External reference site. Not required reading.</p>"
+        },
+        "ParentModuleId": 771,
+        "SortOrder": 1,
+        "LastModifiedDate": "2026-02-28T09:00:00.000Z",
+        "IsHidden": false,
+        "IsLocked": false,
+        "StartDate": null,
+        "EndDate": null,
+        "DueDate": null
+      },
+      {
+        "Id": 772,
+        "Title": "Practice Problems",
+        "ShortTitle": "",
+        "Type": 0,
+        "Description": {
+          "Text": "Optional practice, not collected.",
+          "Html": "<p>Optional practice, not collected.</p>"
+        },
+        "ParentModuleId": 771,
+        "SortOrder": 2,
+        "LastModifiedDate": "2026-03-03T11:45:00.000Z",
+        "IsHidden": false,
+        "IsLocked": false,
+        "ModuleStartDate": null,
+        "ModuleEndDate": null,
+        "ModuleDueDate": null,
+        "Structure": [
+          {
+            "Id": 8844,
+            "Title": "Problem Set 8",
+            "ShortTitle": "",
+            "Type": 1,
+            "TopicType": 1,
+            "Url": "/content/enforced/6001-MTH1003/problem-set-8.txt",
+            "Description": {
+              "Text": "Practice problems for week 8.",
+              "Html": "<p>Practice problems for week 8.</p>"
+            },
+            "ParentModuleId": 772,
+            "SortOrder": 0,
+            "LastModifiedDate": "2026-03-03T11:45:00.000Z",
+            "IsHidden": false,
+            "IsLocked": false,
+            "StartDate": null,
+            "EndDate": null,
+            "DueDate": null
+          }
+        ]
+      }
+    ]
+  }
+]

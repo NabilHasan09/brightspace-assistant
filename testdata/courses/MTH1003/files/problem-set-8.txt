@@ -1,0 +1,7 @@
+Problem Set 8 — Integration by Parts
+
+1. Evaluate int x sin(x) dx.
+2. Evaluate int ln(x) dx.
+3. Evaluate int x^2 e^x dx using a reduction formula.
+4. Show that int e^x sin(x) dx requires two applications and solving for the
+   original integral.

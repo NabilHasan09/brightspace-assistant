@@ -1,0 +1,62 @@
+{
+  "PagingInfo": {
+    "Bookmark": "",
+    "HasMoreItems": false
+  },
+  "Items": [
+    {
+      "OrgUnitInfo": {
+        "Id": 6001,
+        "Type": {
+          "Id": 3,
+          "Code": "Course Offering",
+          "Name": "Course Offering"
+        },
+        "Name": "Calculus I",
+        "Code": "MTH1003"
+      },
+      "Access": {
+        "IsActive": true,
+        "StartDate": "2026-01-26T05:00:00.000Z",
+        "EndDate": "2026-05-22T04:00:00.000Z",
+        "CanAccess": true
+      }
+    },
+    {
+      "OrgUnitInfo": {
+        "Id": 6002,
+        "Type": {
+          "Id": 3,
+          "Code": "Course Offering",
+          "Name": "Course Offering"
+        },
+        "Name": "Discrete Structures",
+        "Code": "MTH3005"
+      },
+      "Access": {
+        "IsActive": true,
+        "StartDate": "2026-01-26T05:00:00.000Z",
+        "EndDate": "2026-05-22T04:00:00.000Z",
+        "CanAccess": true
+      }
+    },
+    {
+      "OrgUnitInfo": {
+        "Id": 101,
+        "Type": {
+          "Id": 5,
+          "Code": "Department",
+          "Name": "Department"
+        },
+        "Name": "Mathematics",
+        "Code": "MATH-DEPT"
+      },
+      "Access": {
+        "IsActive": true,
+        "StartDate": null,
+        "EndDate": null,
+        "CanAccess": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+Lecture 8 — Integration by Parts
+
+Slide 1: The formula
+  int u dv = uv - int v du
+
+Slide 2: Choosing u
+  LIATE heuristic — logarithmic, inverse trig, algebraic, trig, exponential.
+  Pick u as the earliest type in that list.
+
+Slide 3: Worked example
+  int x e^x dx, with u = x and dv = e^x dx.
+  Gives x e^x - e^x + C.
+
+Slide 4: Reduction formulas
+  Repeated application for int x^n e^x dx.

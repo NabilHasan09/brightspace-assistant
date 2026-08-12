@@ -6,5 +6,39 @@
 // blocked on institutional credentials). Everything above this package is
 // identical either way.
 //
+// The interface grows one build step at a time rather than landing all at
+// once, so that every method here has a working mock and a test behind it.
+// Currently: enrollments and the content tree, which is what the materials
+// specialist needs. Grades, deadlines, announcements, and discussions follow.
+//
 // Build step 1.
 package brightspace
+
+import (
+	"context"
+	"io"
+)
+
+type Client interface {
+	// MyEnrollments lists the caller's org units. This includes departments
+	// and semesters, not only courses — filter on OrgUnitInfo.Type.
+	MyEnrollments(ctx context.Context) ([]OrgUnitInfo, error)
+
+	// ContentRoot returns the course's top-level modules, each with its
+	// immediate children inline in Structure.
+	//
+	// Results include objects with IsHidden or IsLocked set — this interface
+	// mirrors the API rather than filtering it. Callers must decide: ingest
+	// MUST skip hidden objects, because indexing one would let the assistant
+	// surface an unreleased exam or draft material the instructor
+	// deliberately withheld. Tracked for build step 5.
+	ContentRoot(ctx context.Context, orgUnitID int) ([]Module, error)
+
+	// ModuleStructure returns one module's immediate children.
+	ModuleStructure(ctx context.Context, orgUnitID, moduleID int) ([]ContentObject, error)
+
+	// TopicFile returns the bytes of a file topic and its MIME type. Returns
+	// ErrNotFileTopic for link and publisher topics, which have no content to
+	// download. The caller owns closing the reader.
+	TopicFile(ctx context.Context, orgUnitID, topicID int) (io.ReadCloser, string, error)
+}
