@@ -14,7 +14,11 @@ vendor/
 # Local content store — course materials are personal and FERPA-sensitive.
 # Never commit ingested documents, extracted text, or embeddings.
 /data/
-.cuny-ai/
+.brightspace-assistant/
+/manifest.json
+/blobs/
+/text/
+/vectors/
 *.db
 *.sqlite
 
