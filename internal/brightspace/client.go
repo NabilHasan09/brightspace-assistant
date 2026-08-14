@@ -17,6 +17,7 @@ package brightspace
 import (
 	"context"
 	"io"
+	"time"
 )
 
 type Client interface {
@@ -41,4 +42,24 @@ type Client interface {
 	// ErrNotFileTopic for link and publisher topics, which have no content to
 	// download. The caller owns closing the reader.
 	TopicFile(ctx context.Context, orgUnitID, topicID int) (io.ReadCloser, string, error)
+
+	// MyGradeValues returns the caller's gradebook for one course, including
+	// instructor Comments. Rows may exist with no score recorded — check
+	// GradeValue.Scored rather than reading points directly.
+	MyGradeValues(ctx context.Context, orgUnitID int) ([]GradeValue, error)
+
+	// MyFinalGrade returns the caller's calculated final grade, or
+	// ErrNotFound when the course does not release one.
+	MyFinalGrade(ctx context.Context, orgUnitID int) (*GradeValue, error)
+
+	// DropboxFolders returns the course's assignment submission folders.
+	// Includes hidden folders; see the note on ContentRoot.
+	DropboxFolders(ctx context.Context, orgUnitID int) ([]DropboxFolder, error)
+
+	// MyEvents returns dated items across several courses at once. The live
+	// endpoint takes a CSV of org unit ids with a date range, so cross-course
+	// planning costs one call rather than one per enrollment.
+	//
+	// An empty orgUnitIDs means every course the caller is enrolled in.
+	MyEvents(ctx context.Context, orgUnitIDs []int, start, end time.Time) ([]CalendarEvent, error)
 }

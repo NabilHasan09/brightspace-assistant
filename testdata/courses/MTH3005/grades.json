@@ -1,0 +1,21 @@
+[
+  {
+    "DisplayedGrade": "88 / 100",
+    "GradeObjectIdentifier": "13001",
+    "GradeObjectName": "Proof Assignment 1",
+    "GradeObjectType": 1,
+    "GradeObjectTypeName": "Numeric",
+    "Comments": {
+      "Text": "Induction step is correct but the base case needs an explicit statement.",
+      "Html": "<p>Induction step is correct but the base case needs an explicit statement.</p>"
+    },
+    "PrivateComments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PointsNumerator": 88.0,
+    "PointsDenominator": 100.0,
+    "WeightedNumerator": 8.8,
+    "WeightedDenominator": 10.0
+  }
+]

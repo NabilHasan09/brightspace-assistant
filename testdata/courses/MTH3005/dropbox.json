@@ -1,0 +1,19 @@
+[
+  {
+    "Id": 4451,
+    "CategoryId": null,
+    "Name": "Proof Assignment 2",
+    "CustomInstructions": {
+      "Text": "Typeset in LaTeX. Submit the PDF only, not the source.",
+      "Html": "<p>Typeset in LaTeX. Submit the PDF only, not the source.</p>"
+    },
+    "DueDate": "2026-03-13T03:59:00.000Z",
+    "Availability": {
+      "StartDate": "2026-02-27T05:00:00.000Z",
+      "EndDate": null
+    },
+    "IsHidden": false,
+    "GroupTypeId": null,
+    "TotalFiles": 0
+  }
+]

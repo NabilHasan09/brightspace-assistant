@@ -1,0 +1,97 @@
+[
+  {
+    "DisplayedGrade": "92 / 100",
+    "GradeObjectIdentifier": "12001",
+    "GradeObjectName": "Homework 1",
+    "GradeObjectType": 1,
+    "GradeObjectTypeName": "Numeric",
+    "Comments": {
+      "Text": "Clean work on the substitution problems. Watch your bounds when you change variables.",
+      "Html": "<p>Clean work on the substitution problems. Watch your bounds when you change variables.</p>"
+    },
+    "PrivateComments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PointsNumerator": 92.0,
+    "PointsDenominator": 100.0,
+    "WeightedNumerator": 9.2,
+    "WeightedDenominator": 10.0
+  },
+  {
+    "DisplayedGrade": "78 / 100",
+    "GradeObjectIdentifier": "12002",
+    "GradeObjectName": "Homework 2",
+    "GradeObjectType": 1,
+    "GradeObjectTypeName": "Numeric",
+    "Comments": {
+      "Text": "Problems 3 and 5 lost points for skipping the u-substitution step. Show intermediate work.",
+      "Html": "<p>Problems 3 and 5 lost points for skipping the u-substitution step. Show intermediate work.</p>"
+    },
+    "PrivateComments": {
+      "Text": "Follow up if this pattern continues on HW3.",
+      "Html": "<p>Follow up if this pattern continues on HW3.</p>"
+    },
+    "PointsNumerator": 78.0,
+    "PointsDenominator": 100.0,
+    "WeightedNumerator": 7.8,
+    "WeightedDenominator": 10.0
+  },
+  {
+    "DisplayedGrade": "85 / 100",
+    "GradeObjectIdentifier": "12003",
+    "GradeObjectName": "Exam 1",
+    "GradeObjectType": 1,
+    "GradeObjectTypeName": "Numeric",
+    "Comments": {
+      "Text": "Strong on limits and derivatives. Review related rates before Exam 2.",
+      "Html": "<p>Strong on limits and derivatives. Review related rates before Exam 2.</p>"
+    },
+    "PrivateComments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PointsNumerator": 85.0,
+    "PointsDenominator": 100.0,
+    "WeightedNumerator": 21.25,
+    "WeightedDenominator": 25.0
+  },
+  {
+    "DisplayedGrade": "",
+    "GradeObjectIdentifier": "12004",
+    "GradeObjectName": "Exam 2",
+    "GradeObjectType": 1,
+    "GradeObjectTypeName": "Numeric",
+    "Comments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PrivateComments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PointsNumerator": null,
+    "PointsDenominator": 100.0,
+    "WeightedNumerator": null,
+    "WeightedDenominator": 25.0
+  },
+  {
+    "DisplayedGrade": "Pass",
+    "GradeObjectIdentifier": "12005",
+    "GradeObjectName": "Lab Participation",
+    "GradeObjectType": 2,
+    "GradeObjectTypeName": "PassFail",
+    "Comments": {
+      "Text": "Consistent attendance.",
+      "Html": "<p>Consistent attendance.</p>"
+    },
+    "PrivateComments": {
+      "Text": "",
+      "Html": ""
+    },
+    "PointsNumerator": null,
+    "PointsDenominator": null,
+    "WeightedNumerator": null,
+    "WeightedDenominator": null
+  }
+]

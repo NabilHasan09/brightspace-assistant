@@ -122,3 +122,84 @@ type MyEnrollmentsResponse struct {
 	PagingInfo PagingInfo      `json:"PagingInfo"`
 	Items      []MyOrgUnitInfo `json:"Items"`
 }
+
+// GradeObjectType distinguishes how a grade is scored. It decides which
+// fields on GradeValue carry meaning: only Numeric populates points, so a
+// caller that assumes points exist will read zero for a pass/fail item and
+// report it as a zero score.
+type GradeObjectType int
+
+const (
+	GradeNumeric   GradeObjectType = 1
+	GradePassFail  GradeObjectType = 2
+	GradeSelectBox GradeObjectType = 3
+	GradeText      GradeObjectType = 4
+)
+
+// GradeValue is one row of the caller's gradebook.
+//
+// D2L returns a base object for non-numeric items and a numeric subtype that
+// adds points and weights. Go unmarshals both into this one struct; the
+// numeric fields are pointers so "no score recorded" stays distinguishable
+// from "scored zero". That distinction is the whole ballgame for the grades
+// specialist — conflating them invents a failing grade that does not exist.
+type GradeValue struct {
+	DisplayedGrade        string          `json:"DisplayedGrade"`
+	GradeObjectIdentifier string          `json:"GradeObjectIdentifier"`
+	GradeObjectName       string          `json:"GradeObjectName"`
+	GradeObjectType       GradeObjectType `json:"GradeObjectType"`
+	GradeObjectTypeName   string          `json:"GradeObjectTypeName"`
+
+	// Comments is instructor feedback visible to the student.
+	// PrivateComments is not — it is instructor-only and must never reach a
+	// student-facing answer.
+	Comments        RichText `json:"Comments"`
+	PrivateComments RichText `json:"PrivateComments"`
+
+	// Numeric grades only.
+	PointsNumerator     *float64 `json:"PointsNumerator"`
+	PointsDenominator   *float64 `json:"PointsDenominator"`
+	WeightedNumerator   *float64 `json:"WeightedNumerator"`
+	WeightedDenominator *float64 `json:"WeightedDenominator"`
+}
+
+// Scored reports whether a numeric score was actually recorded.
+func (g GradeValue) Scored() bool {
+	return g.PointsNumerator != nil && g.PointsDenominator != nil
+}
+
+// Availability is D2L's start/end window, attached to dropbox folders and
+// other released objects.
+type Availability struct {
+	StartDate *time.Time `json:"StartDate"`
+	EndDate   *time.Time `json:"EndDate"`
+}
+
+// DropboxFolder is an assignment submission folder.
+type DropboxFolder struct {
+	Id                 int          `json:"Id"`
+	CategoryId         *int         `json:"CategoryId"`
+	Name               string       `json:"Name"`
+	CustomInstructions RichText     `json:"CustomInstructions"`
+	DueDate            *time.Time   `json:"DueDate"`
+	Availability       Availability `json:"Availability"`
+	IsHidden           bool         `json:"IsHidden"`
+	GroupTypeId        *int         `json:"GroupTypeId"`
+
+	// TotalFiles counts the caller's own submitted files.
+	TotalFiles int `json:"TotalFiles"`
+}
+
+// CalendarEvent is one dated item. The calendar endpoint accepts a CSV of org
+// unit ids alongside a date range, so "everything due next week across all my
+// courses" is a single call rather than a fan-out across enrollments.
+type CalendarEvent struct {
+	CalendarEventId int       `json:"CalendarEventId"`
+	OrgUnitId       int       `json:"OrgUnitId"`
+	Title           string    `json:"Title"`
+	Description     string    `json:"Description"`
+	StartDateTime   time.Time `json:"StartDateTime"`
+	EndDateTime     time.Time `json:"EndDateTime"`
+	IsAllDay        bool      `json:"IsAllDay"`
+	Location        string    `json:"Location"`
+}

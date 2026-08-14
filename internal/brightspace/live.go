@@ -3,6 +3,7 @@ package brightspace
 import (
 	"context"
 	"io"
+	"time"
 )
 
 // LiveClient talks to a real Brightspace tenant over OAuth2 (authorization
@@ -38,4 +39,20 @@ func (c *LiveClient) ModuleStructure(ctx context.Context, orgUnitID, moduleID in
 
 func (c *LiveClient) TopicFile(ctx context.Context, orgUnitID, topicID int) (io.ReadCloser, string, error) {
 	return nil, "", ErrNotImplemented
+}
+
+func (c *LiveClient) MyGradeValues(ctx context.Context, orgUnitID int) ([]GradeValue, error) {
+	return nil, ErrNotImplemented
+}
+
+func (c *LiveClient) MyFinalGrade(ctx context.Context, orgUnitID int) (*GradeValue, error) {
+	return nil, ErrNotImplemented
+}
+
+func (c *LiveClient) DropboxFolders(ctx context.Context, orgUnitID int) ([]DropboxFolder, error) {
+	return nil, ErrNotImplemented
+}
+
+func (c *LiveClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end time.Time) ([]CalendarEvent, error) {
+	return nil, ErrNotImplemented
 }

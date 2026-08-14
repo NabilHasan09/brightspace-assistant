@@ -1,0 +1,19 @@
+{
+  "DisplayedGrade": "84 %",
+  "GradeObjectIdentifier": "final",
+  "GradeObjectName": "Calculated Final Grade",
+  "GradeObjectType": 1,
+  "GradeObjectTypeName": "Numeric",
+  "Comments": {
+    "Text": "",
+    "Html": ""
+  },
+  "PrivateComments": {
+    "Text": "",
+    "Html": ""
+  },
+  "PointsNumerator": 84.0,
+  "PointsDenominator": 100.0,
+  "WeightedNumerator": null,
+  "WeightedDenominator": null
+}

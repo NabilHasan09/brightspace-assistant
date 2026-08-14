@@ -3,12 +3,15 @@ package brightspace
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"mime"
 	"path"
+	"sort"
 	"strings"
+	"time"
 )
 
 // extraTypes fills gaps in Go's builtin MIME table. Markdown has no entry
@@ -99,13 +102,18 @@ func (m *MockClient) courseCode(ctx context.Context, orgUnitID int) (string, err
 	return "", fmt.Errorf("mock: org unit %d: %w", orgUnitID, ErrNotFound)
 }
 
-func (m *MockClient) ContentRoot(ctx context.Context, orgUnitID int) ([]Module, error) {
+// readCourseJSON loads a fixture filed under the course's directory.
+func (m *MockClient) readCourseJSON(ctx context.Context, orgUnitID int, name string, dst any) error {
 	code, err := m.courseCode(ctx, orgUnitID)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	return m.readJSON(path.Join("courses", code, name), dst)
+}
+
+func (m *MockClient) ContentRoot(ctx context.Context, orgUnitID int) ([]Module, error) {
 	var mods []Module
-	if err := m.readJSON(path.Join("courses", code, "content-root.json"), &mods); err != nil {
+	if err := m.readCourseJSON(ctx, orgUnitID, "content-root.json", &mods); err != nil {
 		return nil, err
 	}
 	return mods, nil
@@ -151,6 +159,84 @@ func (m *MockClient) TopicFile(ctx context.Context, orgUnitID, topicID int) (io.
 	}
 
 	return f, mimeForExt(path.Ext(topic.Url)), nil
+}
+
+func (m *MockClient) MyGradeValues(ctx context.Context, orgUnitID int) ([]GradeValue, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var grades []GradeValue
+	if err := m.readCourseJSON(ctx, orgUnitID, "grades.json", &grades); err != nil {
+		return nil, err
+	}
+	return grades, nil
+}
+
+func (m *MockClient) MyFinalGrade(ctx context.Context, orgUnitID int) (*GradeValue, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var final GradeValue
+	err := m.readCourseJSON(ctx, orgUnitID, "final-grade.json", &final)
+	switch {
+	// A missing fixture models a course that does not release a final grade,
+	// which is common mid-semester. That is not an error condition, but it
+	// must not be reported as a zero either.
+	case errors.Is(err, fs.ErrNotExist):
+		return nil, fmt.Errorf("mock: final grade for org unit %d: %w", orgUnitID, ErrNotFound)
+	case err != nil:
+		return nil, err
+	}
+	return &final, nil
+}
+
+func (m *MockClient) DropboxFolders(ctx context.Context, orgUnitID int) ([]DropboxFolder, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var folders []DropboxFolder
+	if err := m.readCourseJSON(ctx, orgUnitID, "dropbox.json", &folders); err != nil {
+		return nil, err
+	}
+	return folders, nil
+}
+
+// MyEvents reads one cross-course fixture rather than per-course files,
+// mirroring the live endpoint's single call over a CSV of org unit ids.
+//
+// The range test is StartDateTime in [start, end). That excludes an event that
+// began before the window and is still running — fine for "what is due this
+// week", possibly wrong for a multi-day event. Verify against a live tenant
+// before relying on it.
+func (m *MockClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end time.Time) ([]CalendarEvent, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var all []CalendarEvent
+	if err := m.readJSON("calendar-events.json", &all); err != nil {
+		return nil, err
+	}
+
+	// Empty means every enrolled course.
+	want := make(map[int]bool, len(orgUnitIDs))
+	for _, id := range orgUnitIDs {
+		want[id] = true
+	}
+
+	out := make([]CalendarEvent, 0, len(all))
+	for _, e := range all {
+		if len(want) > 0 && !want[e.OrgUnitId] {
+			continue
+		}
+		if e.StartDateTime.Before(start) || !e.StartDateTime.Before(end) {
+			continue
+		}
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].StartDateTime.Before(out[j].StartDateTime)
+	})
+	return out, nil
 }
 
 // findObject walks the content tree depth-first. Modules nest, so a flat scan
