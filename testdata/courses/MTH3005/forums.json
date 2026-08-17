@@ -1,0 +1,14 @@
+[
+  {
+    "ForumId": 5601,
+    "Name": "Proof Techniques Q&A",
+    "Description": {
+      "Text": "Ask about induction, contradiction, and contrapositive here.",
+      "Html": "<p>Ask about induction, contradiction, and contrapositive here.</p>"
+    },
+    "StartDate": "2026-02-01T05:00:00.000Z",
+    "EndDate": null,
+    "IsHidden": false,
+    "IsLocked": false
+  }
+]

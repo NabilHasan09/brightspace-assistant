@@ -1,0 +1,50 @@
+[
+  {
+    "Id": 3301,
+    "Title": "Welcome to Week 6",
+    "Body": {
+      "Text": "Office hours move to Thursdays 2-4pm for the rest of the semester.",
+      "Html": "<p>Office hours move to Thursdays 2-4pm for the rest of the semester.</p>"
+    },
+    "StartDate": "2026-02-20T14:00:00.000Z",
+    "EndDate": null,
+    "IsGlobal": false,
+    "IsPublished": true
+  },
+  {
+    "Id": 3303,
+    "Title": "Final project guidelines",
+    "Body": {
+      "Text": "Draft - not yet released to students.",
+      "Html": "<p>Draft - not yet released to students.</p>"
+    },
+    "StartDate": "2026-03-18T09:00:00.000Z",
+    "EndDate": null,
+    "IsGlobal": false,
+    "IsPublished": false
+  },
+  {
+    "Id": 3302,
+    "Title": "Exam 2 room change",
+    "Body": {
+      "Text": "Exam 2 moves to Room 214. The date is unchanged.",
+      "Html": "<p>Exam 2 moves to <strong>Room 214</strong>. The date is unchanged.</p>"
+    },
+    "StartDate": "2026-03-15T18:30:00.000Z",
+    "EndDate": "2026-03-20T04:00:00.000Z",
+    "IsGlobal": false,
+    "IsPublished": true
+  },
+  {
+    "Id": 3304,
+    "Title": "Academic integrity reminder",
+    "Body": {
+      "Text": "Standard college policy applies to all assessments in this course.",
+      "Html": "<p>Standard college policy applies to all assessments in this course.</p>"
+    },
+    "StartDate": null,
+    "EndDate": null,
+    "IsGlobal": true,
+    "IsPublished": true
+  }
+]

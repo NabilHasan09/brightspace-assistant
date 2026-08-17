@@ -1,0 +1,35 @@
+{
+  "Next": null,
+  "Objects": [
+    {
+      "QuizId": 4802,
+      "Name": "Exam 2",
+      "IsActive": true,
+      "SortOrder": 2,
+      "StartDate": "2026-03-19T13:00:00.000Z",
+      "EndDate": "2026-03-19T15:00:00.000Z",
+      "DueDate": "2026-03-19T15:00:00.000Z",
+      "AttemptsAllowed": 1
+    },
+    {
+      "QuizId": 4801,
+      "Name": "Practice Quiz 8",
+      "IsActive": true,
+      "SortOrder": 1,
+      "StartDate": "2026-03-02T05:00:00.000Z",
+      "EndDate": null,
+      "DueDate": null,
+      "AttemptsAllowed": null
+    },
+    {
+      "QuizId": 4800,
+      "Name": "Exam 1",
+      "IsActive": false,
+      "SortOrder": 0,
+      "StartDate": "2026-02-12T13:00:00.000Z",
+      "EndDate": "2026-02-12T15:00:00.000Z",
+      "DueDate": "2026-02-12T15:00:00.000Z",
+      "AttemptsAllowed": 1
+    }
+  ]
+}

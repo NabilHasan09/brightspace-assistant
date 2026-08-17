@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"mime"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -237,6 +238,121 @@ func (m *MockClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end 
 		return out[i].StartDateTime.Before(out[j].StartDateTime)
 	})
 	return out, nil
+}
+
+func (m *MockClient) NewsItems(ctx context.Context, orgUnitID int, since time.Time) ([]NewsItem, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var all []NewsItem
+	if err := m.readCourseJSON(ctx, orgUnitID, "news.json", &all); err != nil {
+		return nil, err
+	}
+
+	out := make([]NewsItem, 0, len(all))
+	for _, n := range all {
+		// A nil StartDate cannot be ruled out of the window, so keep it.
+		if n.StartDate != nil && n.StartDate.Before(since) {
+			continue
+		}
+		out = append(out, n)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].sortKey().After(out[j].sortKey())
+	})
+	return out, nil
+}
+
+func (m *MockClient) DiscussionForums(ctx context.Context, orgUnitID int) ([]Forum, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var forums []Forum
+	if err := m.readCourseJSON(ctx, orgUnitID, "forums.json", &forums); err != nil {
+		return nil, err
+	}
+	return forums, nil
+}
+
+// forum ids, topic ids and post ids live in three separate fixtures because
+// D2L returns them from three separate routes. Fixtures that must agree with
+// each other eventually will not, so TestDiscussionFixtureConsistency asserts
+// the references resolve.
+func (m *MockClient) DiscussionTopics(ctx context.Context, orgUnitID, forumID int) ([]DiscussionTopic, error) {
+	forums, err := m.DiscussionForums(ctx, orgUnitID)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.ContainsFunc(forums, func(f Forum) bool { return f.ForumId == forumID }) {
+		return nil, fmt.Errorf("mock: forum %d in org unit %d: %w", forumID, orgUnitID, ErrNotFound)
+	}
+
+	var all []DiscussionTopic
+	if err := m.readCourseJSON(ctx, orgUnitID, "discussion-topics.json", &all); err != nil {
+		return nil, err
+	}
+	out := make([]DiscussionTopic, 0, len(all))
+	for _, t := range all {
+		if t.ForumId == forumID {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
+func (m *MockClient) DiscussionPosts(ctx context.Context, orgUnitID, forumID, topicID int) ([]Post, error) {
+	topics, err := m.DiscussionTopics(ctx, orgUnitID, forumID)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.ContainsFunc(topics, func(t DiscussionTopic) bool { return t.TopicId == topicID }) {
+		return nil, fmt.Errorf("mock: topic %d in forum %d: %w", topicID, forumID, ErrNotFound)
+	}
+
+	var all []Post
+	if err := m.readCourseJSON(ctx, orgUnitID, "discussion-posts.json", &all); err != nil {
+		return nil, err
+	}
+	out := make([]Post, 0, len(all))
+	for _, p := range all {
+		if p.ForumId == forumID && p.TopicId == topicID {
+			out = append(out, p)
+		}
+	}
+	// Oldest first: a discussion read in reverse is nonsense, and replies must
+	// not appear before what they answer.
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].DatePosted.Before(out[j].DatePosted)
+	})
+	return out, nil
+}
+
+func (m *MockClient) Quizzes(ctx context.Context, orgUnitID int) ([]Quiz, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var page QuizListPage
+	if err := m.readCourseJSON(ctx, orgUnitID, "quizzes.json", &page); err != nil {
+		return nil, err
+	}
+	out := page.Objects
+	sort.Slice(out, func(i, j int) bool { return out[i].SortOrder < out[j].SortOrder })
+	return out, nil
+}
+
+func (m *MockClient) Classlist(ctx context.Context, orgUnitID int) ([]ClasslistUser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var page ClasslistPage
+	if err := m.readCourseJSON(ctx, orgUnitID, "classlist.json", &page); err != nil {
+		return nil, err
+	}
+	return page.Items, nil
+}
+
+func (m *MockClient) SubmitToDropbox(ctx context.Context, orgUnitID, folderID int, comment string, files []Upload) (*Submission, error) {
+	return nil, ErrNotImplemented
 }
 
 // findObject walks the content tree depth-first. Modules nest, so a flat scan

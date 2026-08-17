@@ -1,6 +1,9 @@
 package brightspace
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 // Field names and JSON tags mirror D2L's Valence schemas so that live
 // responses unmarshal with no translation layer.
@@ -97,9 +100,12 @@ type Module = ContentObject
 // IsModule reports whether o is a folder rather than a leaf.
 func (o ContentObject) IsModule() bool { return o.Type == ObjectModule }
 
-// PagingInfo appears on D2L's paged collections. Not honored yet — the mock
-// returns every item in one page. It matters against a live tenant with a
-// large classlist or a busy discussion forum.
+// PagingInfo appears on D2L's bookmark-paged collections: enrollments and the
+// classlist. LiveClient follows the bookmark until the server stops moving it;
+// MockClient returns everything in one page, so a truncation bug would only
+// ever show against a real tenant with a large course.
+//
+// This is not D2L's only paging shape — quizzes use QuizListPage instead.
 type PagingInfo struct {
 	Bookmark     string `json:"Bookmark"`
 	HasMoreItems bool   `json:"HasMoreItems"`
@@ -202,4 +208,165 @@ type CalendarEvent struct {
 	EndDateTime     time.Time `json:"EndDateTime"`
 	IsAllDay        bool      `json:"IsAllDay"`
 	Location        string    `json:"Location"`
+}
+
+// NewsItem is one course announcement.
+//
+// IsPublished is the field that matters: an unpublished item is a draft the
+// instructor has not released, and surfacing one is the same class of mistake
+// as indexing a hidden content topic. Returned unfiltered here, like every
+// other visibility flag in this package — callers filter.
+type NewsItem struct {
+	Id    int      `json:"Id"`
+	Title string   `json:"Title"`
+	Body  RichText `json:"Body"`
+
+	// StartDate is when the announcement becomes visible; EndDate is when it
+	// stops. Both are nullable, and an expired item still comes back.
+	StartDate *time.Time `json:"StartDate"`
+	EndDate   *time.Time `json:"EndDate"`
+
+	// IsGlobal marks an org-wide notice rather than a course one.
+	IsGlobal    bool `json:"IsGlobal"`
+	IsPublished bool `json:"IsPublished"`
+}
+
+// sortKey orders announcements newest first, treating an undated item as
+// oldest so it cannot displace a real one at the top of "what did I miss".
+func (n NewsItem) sortKey() time.Time {
+	if n.StartDate == nil {
+		return time.Time{}
+	}
+	return *n.StartDate
+}
+
+// Forum is a discussion container. Topics live inside it, posts inside those.
+type Forum struct {
+	ForumId     int        `json:"ForumId"`
+	Name        string     `json:"Name"`
+	Description RichText   `json:"Description"`
+	StartDate   *time.Time `json:"StartDate"`
+	EndDate     *time.Time `json:"EndDate"`
+	IsHidden    bool       `json:"IsHidden"`
+	IsLocked    bool       `json:"IsLocked"`
+}
+
+// DiscussionTopic is a thread container inside a Forum. Named with the
+// Discussion prefix because ContentObject already owns "topic" in this package
+// and the two are unrelated — a collision that is otherwise very easy to make.
+type DiscussionTopic struct {
+	TopicId     int        `json:"TopicId"`
+	ForumId     int        `json:"ForumId"`
+	Name        string     `json:"Name"`
+	Description RichText   `json:"Description"`
+	StartDate   *time.Time `json:"StartDate"`
+	EndDate     *time.Time `json:"EndDate"`
+	IsHidden    bool       `json:"IsHidden"`
+	IsLocked    bool       `json:"IsLocked"`
+}
+
+// Post is one message in a discussion topic.
+//
+// ParentPostId is nil for a thread starter and set for a reply, which is the
+// only thing that makes "did anyone reply to my post?" answerable — the flat
+// array carries the tree structure in this one field.
+//
+// IsRead is per-caller. Whether D2L returns it inline on this route or only
+// through a separate read-status call is UNVERIFIED; if it turns out to be the
+// latter, this field silently reads false for everything and the unread-posts
+// question quietly stops working. Check it on first live connection.
+type Post struct {
+	PostId         int        `json:"PostId"`
+	TopicId        int        `json:"TopicId"`
+	ForumId        int        `json:"ForumId"`
+	ParentPostId   *int       `json:"ParentPostId"`
+	Subject        string     `json:"Subject"`
+	Message        RichText   `json:"Message"`
+	PostingUserId  int        `json:"PostingUserId"`
+	DisplayName    string     `json:"DisplayName"`
+	DatePosted     time.Time  `json:"DatePosted"`
+	LastEditedDate *time.Time `json:"LastEditedDate"`
+	IsAnonymous    bool       `json:"IsAnonymous"`
+	IsDeleted      bool       `json:"IsDeleted"`
+	IsRead         bool       `json:"IsRead"`
+}
+
+// Quiz is one quiz or exam. Deadlines reads DueDate; StartDate and EndDate are
+// the availability window, which is not the same thing — a quiz can be due
+// before it closes.
+type Quiz struct {
+	QuizId          int        `json:"QuizId"`
+	Name            string     `json:"Name"`
+	IsActive        bool       `json:"IsActive"`
+	SortOrder       int        `json:"SortOrder"`
+	StartDate       *time.Time `json:"StartDate"`
+	EndDate         *time.Time `json:"EndDate"`
+	DueDate         *time.Time `json:"DueDate"`
+	AttemptsAllowed *int       `json:"AttemptsAllowed"`
+}
+
+// QuizListPage is D2L's *other* paging envelope.
+//
+// Enrollments and the classlist page with a PagingInfo bookmark; quizzes page
+// with a Next link. Two conventions in one API is a wart, not a mistake here —
+// modeling it as one shape would break against a real tenant.
+//
+// UNVERIFIED: that quizzes uses this envelope at all rather than a bare array.
+// Either guess fails loudly at first live contact (a JSON decode error), which
+// is the right failure shape.
+type QuizListPage struct {
+	Next    *string `json:"Next"`
+	Objects []Quiz  `json:"Objects"`
+}
+
+// ClasslistUser is one enrolled person — how "who is my TA?" gets answered.
+//
+// Email, UserName and OrgDefinedId are governed by the Classlist tool's
+// per-org settings, so they arrive empty when the institution withholds them.
+// That is a normal configuration, not an error: logistics must degrade to
+// "here is their name, no contact details" rather than failing.
+//
+// RoleId is numeric and org-specific — there is no portable constant for
+// "Instructor" or "TA". Resolving it needs the roles route or a configured
+// mapping; do not hardcode a number.
+type ClasslistUser struct {
+	Identifier        string     `json:"Identifier"`
+	ProfileIdentifier string     `json:"ProfileIdentifier"`
+	DisplayName       string     `json:"DisplayName"`
+	FirstName         string     `json:"FirstName"`
+	LastName          string     `json:"LastName"`
+	UserName          string     `json:"UserName"`
+	OrgDefinedId      string     `json:"OrgDefinedId"`
+	Email             string     `json:"Email"`
+	RoleId            *int       `json:"RoleId"`
+	LastAccessed      *time.Time `json:"LastAccessed"`
+	IsOnline          bool       `json:"IsOnline"`
+}
+
+// ClasslistPage is the paged envelope around ClasslistUser. Same bookmark
+// convention as enrollments.
+type ClasslistPage struct {
+	PagingInfo PagingInfo      `json:"PagingInfo"`
+	Items      []ClasslistUser `json:"Items"`
+}
+
+// Upload is one file bound for a dropbox folder. v2.
+type Upload struct {
+	Name        string
+	ContentType string
+	Data        io.Reader
+}
+
+// Submission is what comes back from a successful dropbox submission. v2.
+type Submission struct {
+	Id             int              `json:"Id"`
+	SubmissionDate time.Time        `json:"SubmissionDate"`
+	Comment        RichText         `json:"Comment"`
+	Files          []SubmissionFile `json:"Files"`
+}
+
+type SubmissionFile struct {
+	FileId   int    `json:"FileId"`
+	FileName string `json:"FileName"`
+	Size     int64  `json:"Size"`
 }

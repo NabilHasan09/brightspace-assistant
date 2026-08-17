@@ -1,0 +1,26 @@
+[
+  {
+    "ForumId": 5501,
+    "Name": "Week 8 Discussion",
+    "Description": {
+      "Text": "Post one question you got stuck on and reply to a classmate.",
+      "Html": "<p>Post one question you got stuck on and reply to a classmate.</p>"
+    },
+    "StartDate": "2026-03-02T05:00:00.000Z",
+    "EndDate": null,
+    "IsHidden": false,
+    "IsLocked": false
+  },
+  {
+    "ForumId": 5502,
+    "Name": "Final Project Peer Review",
+    "Description": {
+      "Text": "Not yet open.",
+      "Html": "<p>Not yet open.</p>"
+    },
+    "StartDate": null,
+    "EndDate": null,
+    "IsHidden": true,
+    "IsLocked": true
+  }
+]

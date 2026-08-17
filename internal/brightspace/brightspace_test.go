@@ -339,6 +339,275 @@ func TestMyEvents(t *testing.T) {
 	}
 }
 
+func TestNewsItems(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	all, err := c.NewsItems(ctx, 6001, time.Time{})
+	if err != nil {
+		t.Fatalf("NewsItems: %v", err)
+	}
+	if len(all) != 4 {
+		t.Fatalf("got %d announcements, want 4", len(all))
+	}
+
+	// Newest first — "anything I missed this week?" reads top-down.
+	if all[0].Id != 3303 || all[1].Id != 3302 {
+		t.Errorf("order = %d, %d; want 3303 then 3302", all[0].Id, all[1].Id)
+	}
+	// The undated item sorts last rather than displacing a real announcement.
+	if all[len(all)-1].Id != 3304 {
+		t.Errorf("last = %d, want the undated item 3304", all[len(all)-1].Id)
+	}
+
+	// Unpublished drafts come back unfiltered, like every other visibility
+	// flag here. Nothing student-facing may pass one through.
+	var draft bool
+	for _, n := range all {
+		if n.Id == 3303 && !n.IsPublished {
+			draft = true
+		}
+	}
+	if !draft {
+		t.Error("fixture should carry an unpublished draft so the distinction stays testable")
+	}
+
+	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	recent, err := c.NewsItems(ctx, 6001, since)
+	if err != nil {
+		t.Fatalf("NewsItems(since): %v", err)
+	}
+	// 3302 and 3303 are in range; 3301 predates it; 3304 has no date and is
+	// kept because it cannot be ruled out.
+	if len(recent) != 3 {
+		t.Fatalf("got %d items since March, want 3: %+v", len(recent), recent)
+	}
+	for _, n := range recent {
+		if n.Id == 3301 {
+			t.Error("February announcement leaked past the since filter")
+		}
+	}
+}
+
+func TestDiscussionForums(t *testing.T) {
+	got, err := newTestClient(t).DiscussionForums(context.Background(), 6001)
+	if err != nil {
+		t.Fatalf("DiscussionForums: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d forums, want 2", len(got))
+	}
+	if got[0].ForumId != 5501 || got[0].Name != "Week 8 Discussion" {
+		t.Errorf("first forum = %+v", got[0])
+	}
+	if !got[1].IsHidden {
+		t.Error("fixture should include a hidden forum")
+	}
+}
+
+func TestDiscussionTopics(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	got, err := c.DiscussionTopics(ctx, 6001, 5501)
+	if err != nil {
+		t.Fatalf("DiscussionTopics: %v", err)
+	}
+	// Forum 5502's topic must not leak into 5501's listing.
+	if len(got) != 2 {
+		t.Fatalf("got %d topics in forum 5501, want 2", len(got))
+	}
+	for _, top := range got {
+		if top.ForumId != 5501 {
+			t.Errorf("topic %d belongs to forum %d", top.TopicId, top.ForumId)
+		}
+	}
+
+	if _, err := c.DiscussionTopics(ctx, 6001, 9999); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown forum err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestDiscussionPosts(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	got, err := c.DiscussionPosts(ctx, 6001, 5501, 6601)
+	if err != nil {
+		t.Fatalf("DiscussionPosts: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d posts, want 3", len(got))
+	}
+
+	// Oldest first, so a reply never appears before what it answers.
+	for i := 1; i < len(got); i++ {
+		if got[i].DatePosted.Before(got[i-1].DatePosted) {
+			t.Fatalf("posts not in chronological order: %+v", got)
+		}
+	}
+
+	// The flat array carries the thread shape in ParentPostId alone. Without
+	// it, "did anyone reply to my post?" is unanswerable.
+	if got[0].ParentPostId != nil {
+		t.Error("first post should be a thread starter")
+	}
+	if got[1].ParentPostId == nil || *got[1].ParentPostId != 7701 {
+		t.Errorf("second post should reply to 7701, got %v", got[1].ParentPostId)
+	}
+	if got[1].IsRead {
+		t.Error("fixture should carry an unread reply")
+	}
+	// Deleted posts come back with their message intact. Callers filter.
+	if !got[2].IsDeleted {
+		t.Error("fixture should include a deleted post")
+	}
+
+	// A topic with no posts is a normal state, not an error.
+	empty, err := c.DiscussionPosts(ctx, 6002, 5601, 6701)
+	if err != nil {
+		t.Fatalf("DiscussionPosts(empty): %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("got %d posts in an empty thread", len(empty))
+	}
+
+	if _, err := c.DiscussionPosts(ctx, 6001, 5501, 9999); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown topic err = %v, want ErrNotFound", err)
+	}
+	// A topic that exists but in a different forum must not resolve.
+	if _, err := c.DiscussionPosts(ctx, 6001, 5501, 6603); !errors.Is(err, ErrNotFound) {
+		t.Errorf("cross-forum topic err = %v, want ErrNotFound", err)
+	}
+}
+
+// Forums, topics and posts arrive from three separate routes and so live in
+// three separate fixtures. Fixtures that must agree with each other eventually
+// will not, so the references are asserted rather than assumed.
+func TestDiscussionFixtureConsistency(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	for _, orgUnitID := range []int{6001, 6002} {
+		forums, err := c.DiscussionForums(ctx, orgUnitID)
+		if err != nil {
+			t.Fatalf("DiscussionForums(%d): %v", orgUnitID, err)
+		}
+
+		seenTopics := make(map[int]bool)
+		for _, f := range forums {
+			topics, err := c.DiscussionTopics(ctx, orgUnitID, f.ForumId)
+			if err != nil {
+				t.Fatalf("DiscussionTopics(%d, %d): %v", orgUnitID, f.ForumId, err)
+			}
+			for _, top := range topics {
+				seenTopics[top.TopicId] = true
+				if _, err := c.DiscussionPosts(ctx, orgUnitID, f.ForumId, top.TopicId); err != nil {
+					t.Errorf("posts for topic %d: %v", top.TopicId, err)
+				}
+			}
+		}
+
+		var posts []Post
+		if err := c.readCourseJSON(ctx, orgUnitID, "discussion-posts.json", &posts); err != nil {
+			t.Fatalf("read posts fixture: %v", err)
+		}
+		for _, p := range posts {
+			if !seenTopics[p.TopicId] {
+				t.Errorf("org unit %d: post %d references topic %d, which no forum lists",
+					orgUnitID, p.PostId, p.TopicId)
+			}
+		}
+	}
+}
+
+func TestQuizzes(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	got, err := c.Quizzes(ctx, 6001)
+	if err != nil {
+		t.Fatalf("Quizzes: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d quizzes, want 3", len(got))
+	}
+	// The fixture is filed out of order, so this asserts the sort rather than
+	// the file's layout.
+	for i := 1; i < len(got); i++ {
+		if got[i].SortOrder < got[i-1].SortOrder {
+			t.Fatalf("quizzes not sorted by SortOrder: %+v", got)
+		}
+	}
+
+	byName := make(map[string]Quiz, len(got))
+	for _, q := range got {
+		byName[q.Name] = q
+	}
+	// A practice quiz with no deadline must not read as due at the zero time.
+	if practice := byName["Practice Quiz 8"]; practice.DueDate != nil {
+		t.Errorf("Practice Quiz 8 DueDate = %v, want nil", practice.DueDate)
+	}
+	if exam := byName["Exam 2"]; exam.DueDate == nil {
+		t.Error("Exam 2 should carry a due date")
+	}
+	if byName["Exam 1"].IsActive {
+		t.Error("fixture should include an inactive quiz")
+	}
+
+	empty, err := c.Quizzes(ctx, 6002)
+	if err != nil {
+		t.Fatalf("Quizzes(6002): %v", err)
+	}
+	if len(empty) != 0 {
+		t.Errorf("got %d quizzes for a course with none", len(empty))
+	}
+}
+
+func TestClasslist(t *testing.T) {
+	got, err := newTestClient(t).Classlist(context.Background(), 6001)
+	if err != nil {
+		t.Fatalf("Classlist: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d people, want 3", len(got))
+	}
+
+	if got[0].DisplayName != "Prof. Amara Okonkwo" || got[0].Email == "" {
+		t.Errorf("instructor = %+v", got[0])
+	}
+	if got[0].RoleId == nil {
+		t.Error("instructor should carry a RoleId")
+	}
+
+	// Contact visibility is an org setting, so JSON null is the normal case,
+	// not a broken record. logistics must answer with a name and no email
+	// rather than failing.
+	withheld := got[2]
+	if withheld.DisplayName == "" {
+		t.Error("a person with withheld contact details must still have a name")
+	}
+	if withheld.Email != "" || withheld.UserName != "" || withheld.OrgDefinedId != "" {
+		t.Errorf("null contact fields should decode empty, got %+v", withheld)
+	}
+	if withheld.LastAccessed != nil {
+		t.Error("a null LastAccessed must stay nil, not become the zero time")
+	}
+}
+
+func TestSubmitToDropboxNotImplemented(t *testing.T) {
+	ctx := context.Background()
+	clients := map[string]Client{
+		"mock": newTestClient(t),
+		"live": NewLiveClient("https://example.invalid", nil),
+	}
+	for name, c := range clients {
+		if _, err := c.SubmitToDropbox(ctx, 6001, 4401, "", nil); !errors.Is(err, ErrNotImplemented) {
+			t.Errorf("%s SubmitToDropbox err = %v, want ErrNotImplemented", name, err)
+		}
+	}
+}
+
 func TestMimeForExt(t *testing.T) {
 	tests := []struct{ ext, want string }{
 		// Not in Go's builtin table and not reliably in the system files.
@@ -392,34 +661,25 @@ func TestContextCancellation(t *testing.T) {
 	if _, err := c.MyEvents(ctx, nil, time.Time{}, time.Now()); !errors.Is(err, context.Canceled) {
 		t.Errorf("MyEvents err = %v, want context.Canceled", err)
 	}
-}
-
-func TestLiveClientNotImplemented(t *testing.T) {
-	c := &LiveClient{Host: "brightspace.cuny.edu"}
-	ctx := context.Background()
-
-	if _, err := c.MyEnrollments(ctx); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("MyEnrollments err = %v", err)
+	if _, err := c.NewsItems(ctx, 6001, time.Time{}); !errors.Is(err, context.Canceled) {
+		t.Errorf("NewsItems err = %v, want context.Canceled", err)
 	}
-	if _, err := c.ContentRoot(ctx, 6001); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("ContentRoot err = %v", err)
+	if _, err := c.DiscussionForums(ctx, 6001); !errors.Is(err, context.Canceled) {
+		t.Errorf("DiscussionForums err = %v, want context.Canceled", err)
 	}
-	if _, err := c.ModuleStructure(ctx, 6001, 771); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("ModuleStructure err = %v", err)
+	if _, err := c.DiscussionTopics(ctx, 6001, 5501); !errors.Is(err, context.Canceled) {
+		t.Errorf("DiscussionTopics err = %v, want context.Canceled", err)
 	}
-	if _, _, err := c.TopicFile(ctx, 6001, 8842); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("TopicFile err = %v", err)
+	if _, err := c.DiscussionPosts(ctx, 6001, 5501, 6601); !errors.Is(err, context.Canceled) {
+		t.Errorf("DiscussionPosts err = %v, want context.Canceled", err)
 	}
-	if _, err := c.MyGradeValues(ctx, 6001); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("MyGradeValues err = %v", err)
+	if _, err := c.Quizzes(ctx, 6001); !errors.Is(err, context.Canceled) {
+		t.Errorf("Quizzes err = %v, want context.Canceled", err)
 	}
-	if _, err := c.MyFinalGrade(ctx, 6001); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("MyFinalGrade err = %v", err)
-	}
-	if _, err := c.DropboxFolders(ctx, 6001); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("DropboxFolders err = %v", err)
-	}
-	if _, err := c.MyEvents(ctx, nil, time.Time{}, time.Now()); !errors.Is(err, ErrNotImplemented) {
-		t.Errorf("MyEvents err = %v", err)
+	if _, err := c.Classlist(ctx, 6001); !errors.Is(err, context.Canceled) {
+		t.Errorf("Classlist err = %v, want context.Canceled", err)
 	}
 }
+
+// LiveClient's behavior is covered in live_test.go, against an httptest server
+// serving these same fixtures.

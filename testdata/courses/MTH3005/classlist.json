@@ -1,0 +1,34 @@
+{
+  "PagingInfo": {
+    "Bookmark": "",
+    "HasMoreItems": false
+  },
+  "Items": [
+    {
+      "Identifier": "91010",
+      "ProfileIdentifier": "pRoFiLe91010",
+      "DisplayName": "Dr. Yusuf Bakr",
+      "FirstName": "Yusuf",
+      "LastName": "Bakr",
+      "UserName": "ybakr",
+      "OrgDefinedId": "EMP01221",
+      "Email": "yusuf.bakr@example.cuny.edu",
+      "RoleId": 103,
+      "LastAccessed": "2026-03-04T09:15:00.000Z",
+      "IsOnline": false
+    },
+    {
+      "Identifier": "91002",
+      "ProfileIdentifier": "pRoFiLe91002",
+      "DisplayName": "Dana Whitfield",
+      "FirstName": "Dana",
+      "LastName": "Whitfield",
+      "UserName": null,
+      "OrgDefinedId": null,
+      "Email": null,
+      "RoleId": 110,
+      "LastAccessed": null,
+      "IsOnline": false
+    }
+  ]
+}

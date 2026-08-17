@@ -1,0 +1,14 @@
+[
+  {
+    "Id": 3401,
+    "Title": "LaTeX template posted",
+    "Body": {
+      "Text": "Use the template in Content for all proof assignments.",
+      "Html": "<p>Use the template in Content for all proof assignments.</p>"
+    },
+    "StartDate": "2026-02-27T15:00:00.000Z",
+    "EndDate": null,
+    "IsGlobal": false,
+    "IsPublished": true
+  }
+]

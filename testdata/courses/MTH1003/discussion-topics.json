@@ -1,0 +1,41 @@
+[
+  {
+    "TopicId": 6601,
+    "ForumId": 5501,
+    "Name": "Integration by parts: where are you stuck?",
+    "Description": {
+      "Text": "Describe the step that breaks down, not just the final answer.",
+      "Html": "<p>Describe the step that breaks down, not just the final answer.</p>"
+    },
+    "StartDate": "2026-03-02T05:00:00.000Z",
+    "EndDate": null,
+    "IsHidden": false,
+    "IsLocked": false
+  },
+  {
+    "TopicId": 6602,
+    "ForumId": 5501,
+    "Name": "Week 7 recap (closed)",
+    "Description": {
+      "Text": "Archived. Read-only.",
+      "Html": "<p>Archived. Read-only.</p>"
+    },
+    "StartDate": "2026-02-23T05:00:00.000Z",
+    "EndDate": "2026-03-02T05:00:00.000Z",
+    "IsHidden": false,
+    "IsLocked": true
+  },
+  {
+    "TopicId": 6603,
+    "ForumId": 5502,
+    "Name": "Draft peer review thread",
+    "Description": {
+      "Text": "Not yet open.",
+      "Html": "<p>Not yet open.</p>"
+    },
+    "StartDate": null,
+    "EndDate": null,
+    "IsHidden": true,
+    "IsLocked": true
+  }
+]
