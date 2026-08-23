@@ -57,8 +57,8 @@ func TestContentRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ContentRoot: %v", err)
 	}
-	if len(root) != 1 {
-		t.Fatalf("got %d root modules, want 1", len(root))
+	if len(root) != 2 {
+		t.Fatalf("got %d root modules, want 2", len(root))
 	}
 
 	mod := root[0]
@@ -68,8 +68,19 @@ func TestContentRoot(t *testing.T) {
 	if mod.Id != 771 || mod.Title != "Week 8: Integration by Parts" {
 		t.Errorf("module = {Id:%d Title:%q}", mod.Id, mod.Title)
 	}
-	if len(mod.Structure) != 3 {
-		t.Errorf("got %d children, want 3", len(mod.Structure))
+	if len(mod.Structure) != 4 {
+		t.Errorf("got %d children, want 4", len(mod.Structure))
+	}
+
+	// Withheld objects come back unfiltered, because this package mirrors the
+	// API rather than deciding what a student may see. Module 773 is an
+	// unreleased week and topic 8845 is a solution set; dropping them is the
+	// caller's job, and internal/mcptools is where that happens.
+	if !root[1].IsHidden {
+		t.Errorf("module 773 IsHidden = false, want true — the hidden-module fixture is what proves callers must filter")
+	}
+	if hidden, ok := findObject(root, 8845); !ok || !hidden.IsHidden {
+		t.Errorf("topic 8845 = {found:%t hidden:%t}, want a hidden topic", ok, hidden.IsHidden)
 	}
 
 	// LastModifiedDate gates every re-ingest decision, so a date that fails to
@@ -98,8 +109,8 @@ func TestModuleStructureNested(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ModuleStructure(771): %v", err)
 	}
-	if len(top) != 3 {
-		t.Fatalf("got %d children of 771, want 3", len(top))
+	if len(top) != 4 {
+		t.Fatalf("got %d children of 771, want 4", len(top))
 	}
 
 	// Module 772 is nested inside 771. A flat scan of the root would miss it,

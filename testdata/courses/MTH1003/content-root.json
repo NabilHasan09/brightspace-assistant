@@ -96,6 +96,66 @@
             "DueDate": null
           }
         ]
+      },
+      {
+        "Id": 8845,
+        "Title": "Exam 2 Solutions",
+        "ShortTitle": "",
+        "Type": 1,
+        "TopicType": 1,
+        "Url": "/content/enforced/6001-MTH1003/exam-2-solutions.txt",
+        "Description": {
+          "Text": "Released after the exam.",
+          "Html": "<p>Released after the exam.</p>"
+        },
+        "ParentModuleId": 771,
+        "SortOrder": 3,
+        "LastModifiedDate": "2026-03-01T08:00:00.000Z",
+        "IsHidden": true,
+        "IsLocked": false,
+        "StartDate": null,
+        "EndDate": null,
+        "DueDate": null
+      }
+    ]
+  },
+  {
+    "Id": 773,
+    "Title": "Week 9: Partial Fractions",
+    "ShortTitle": "",
+    "Type": 0,
+    "Description": {
+      "Text": "Not yet released.",
+      "Html": "<p>Not yet released.</p>"
+    },
+    "ParentModuleId": null,
+    "SortOrder": 1,
+    "LastModifiedDate": "2026-03-04T10:00:00.000Z",
+    "IsHidden": true,
+    "IsLocked": false,
+    "ModuleStartDate": null,
+    "ModuleEndDate": null,
+    "ModuleDueDate": null,
+    "Structure": [
+      {
+        "Id": 8846,
+        "Title": "Lecture 9 Slides",
+        "ShortTitle": "",
+        "Type": 1,
+        "TopicType": 1,
+        "Url": "/content/enforced/6001-MTH1003/lecture-9-slides.txt",
+        "Description": {
+          "Text": "Visible flag on the topic, but its module is not released.",
+          "Html": "<p>Visible flag on the topic, but its module is not released.</p>"
+        },
+        "ParentModuleId": 773,
+        "SortOrder": 0,
+        "LastModifiedDate": "2026-03-04T10:00:00.000Z",
+        "IsHidden": false,
+        "IsLocked": false,
+        "StartDate": null,
+        "EndDate": null,
+        "DueDate": null
       }
     ]
   }

@@ -1,0 +1,10 @@
+Exam 2 — Solutions (INSTRUCTOR COPY, NOT RELEASED)
+
+Problem 1: int x ln(x) dx
+  u = ln(x), dv = x dx  ->  (x^2/2)ln(x) - x^2/4 + C
+
+Problem 2: int x^2 e^x dx
+  Two applications of parts  ->  e^x(x^2 - 2x + 2) + C
+
+Problem 3: int e^x sin(x) dx
+  Cyclic; solve for the integral  ->  (e^x/2)(sin x - cos x) + C

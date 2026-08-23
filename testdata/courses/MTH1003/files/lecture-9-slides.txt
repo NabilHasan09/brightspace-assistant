@@ -1,0 +1,10 @@
+Lecture 9 — Partial Fractions (DRAFT, MODULE NOT RELEASED)
+
+Slide 1: Proper vs improper rational functions
+  Divide first when deg(numerator) >= deg(denominator).
+
+Slide 2: Distinct linear factors
+  P(x)/((x-a)(x-b)) = A/(x-a) + B/(x-b)
+
+Slide 3: Repeated and irreducible quadratic factors
+  One term per power; Bx + C over each irreducible quadratic.

@@ -251,7 +251,7 @@ func TestLiveMatchesMock(t *testing.T) {
 	sameJSON(t, "ContentRoot", liveRoot, mockRoot)
 
 	// Nesting survives the round trip: module 772 sits inside 771.
-	if len(liveRoot) != 1 || len(liveRoot[0].Structure) != 3 {
+	if len(liveRoot) != 2 || len(liveRoot[0].Structure) != 4 {
 		t.Fatalf("content tree did not survive HTTP: %+v", liveRoot)
 	}
 
