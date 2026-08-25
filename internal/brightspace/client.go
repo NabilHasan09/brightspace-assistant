@@ -26,8 +26,13 @@ import (
 
 type Client interface {
 	// MyEnrollments lists the caller's org units. This includes departments
-	// and semesters, not only courses — filter on OrgUnitInfo.Type.
-	MyEnrollments(ctx context.Context) ([]OrgUnitInfo, error)
+	// and semesters, not only courses — filter on OrgUnit.Type.
+	//
+	// Returns the full entry rather than the bare org unit because the access
+	// window is the only way to tell a class that is running now from one that
+	// ended two years ago: a real tenant reports IsActive and CanAccess true
+	// for every past enrollment, so the dates are the only usable signal.
+	MyEnrollments(ctx context.Context) ([]MyOrgUnitInfo, error)
 
 	// ContentRoot returns the course's top-level modules, each with its
 	// immediate children inline in Structure.

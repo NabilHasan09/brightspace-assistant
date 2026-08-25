@@ -212,19 +212,25 @@ func (c *LiveClient) getJSON(ctx context.Context, rawURL string, dst any) error 
 // MyEnrollments is the one paged route in this set. A student has few
 // enrollments, but the bookmark loop is the same everywhere D2L pages, and the
 // classlist and discussion routes coming later will need it.
-func (c *LiveClient) MyEnrollments(ctx context.Context) ([]OrgUnitInfo, error) {
+func (c *LiveClient) MyEnrollments(ctx context.Context) ([]MyOrgUnitInfo, error) {
 	// Non-nil so an empty result compares equal to the mock's.
-	out := []OrgUnitInfo{}
+	out := []MyOrgUnitInfo{}
+
+	// The tenant's own UI sends these three, and unfiltered the route returns
+	// every org unit the student belongs to — semesters, departments, and the
+	// org root alongside actual classes. isActive and canAccess do not narrow
+	// to the current term; they stay true for enrollments years in the past.
 	q := url.Values{}
+	q.Set("orgUnitTypeId", strconv.Itoa(CourseOfferingTypeID))
+	q.Set("isActive", "true")
+	q.Set("canAccess", "true")
 
 	for {
 		var page MyEnrollmentsResponse
 		if err := c.getJSON(ctx, c.lpURL("/enrollments/myenrollments/", q), &page); err != nil {
 			return nil, err
 		}
-		for _, item := range page.Items {
-			out = append(out, item.OrgUnitInfo)
-		}
+		out = append(out, page.Items...)
 
 		// Continue only if the server claims more AND hands back a bookmark
 		// that actually moved. A server that repeats a bookmark, or sets

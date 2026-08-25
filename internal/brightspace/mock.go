@@ -72,7 +72,7 @@ func (m *MockClient) readJSON(name string, dst any) error {
 	return nil
 }
 
-func (m *MockClient) MyEnrollments(ctx context.Context) ([]OrgUnitInfo, error) {
+func (m *MockClient) MyEnrollments(ctx context.Context) ([]MyOrgUnitInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -80,11 +80,9 @@ func (m *MockClient) MyEnrollments(ctx context.Context) ([]OrgUnitInfo, error) {
 	if err := m.readJSON("enrollments.json", &resp); err != nil {
 		return nil, err
 	}
-	out := make([]OrgUnitInfo, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		out = append(out, item.OrgUnitInfo)
-	}
-	return out, nil
+	// Non-nil so an empty fixture compares equal to the live client's result.
+	out := make([]MyOrgUnitInfo, 0, len(resp.Items))
+	return append(out, resp.Items...), nil
 }
 
 // courseCode maps an org unit id to the fixture directory name. The live API
@@ -96,8 +94,8 @@ func (m *MockClient) courseCode(ctx context.Context, orgUnitID int) (string, err
 		return "", err
 	}
 	for _, u := range units {
-		if u.Id == orgUnitID {
-			return u.Code, nil
+		if u.OrgUnit.Id == orgUnitID {
+			return u.OrgUnit.Code, nil
 		}
 	}
 	return "", fmt.Errorf("mock: org unit %d: %w", orgUnitID, ErrNotFound)

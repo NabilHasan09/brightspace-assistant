@@ -49,8 +49,23 @@ type OrgUnitTypeInfo struct {
 	Name string `json:"Name"`
 }
 
-// OrgUnitInfo identifies a course. Code is what a student says out loud
-// ("MTH1003"); Id is what every other endpoint wants.
+// CourseOfferingTypeID is the org unit type for a course offering, as opposed
+// to a department, semester, or the org root.
+//
+// Org unit types are configurable per institution, so this is a default rather
+// than a constant of the protocol. It matches what the tenant's own UI sends.
+// Note that it does not exclude non-academic org units: onboarding tutorials
+// and compliance trainings are also modelled as course offerings.
+const CourseOfferingTypeID = 3
+
+// OrgUnitInfo identifies a course. Id is what every other endpoint wants.
+//
+// Code and Name are both messier than they look on a real tenant. Code carries
+// institution, term, and section around the catalog number
+// ("BAR01_MTH_4360_1262_1_26545"), and Name has no fixed convention at all —
+// three courses in one semester can each order term, title, section, and
+// campus differently. Neither is safe to match on exactly; see the tool layer's
+// course resolver.
 type OrgUnitInfo struct {
 	Id   int             `json:"Id"`
 	Type OrgUnitTypeInfo `json:"Type"`
@@ -111,15 +126,28 @@ type PagingInfo struct {
 	HasMoreItems bool   `json:"HasMoreItems"`
 }
 
-// MyOrgUnitInfo is one entry from the enrollments endpoint, which wraps
-// OrgUnitInfo alongside access dates rather than returning it bare.
+// MyOrgUnitInfo is one entry from the enrollments endpoint, which wraps the
+// org unit alongside access dates rather than returning it bare.
+//
+// The JSON key is "OrgUnit", not "OrgUnitInfo" — verified against a live
+// tenant. Getting this wrong fails silently, because a missing key is not an
+// unmarshal error: the caller gets the right number of enrollments back, every
+// one of them zeroed, with no id, name, or code.
 type MyOrgUnitInfo struct {
-	OrgUnitInfo OrgUnitInfo `json:"OrgUnitInfo"`
-	Access      struct {
+	OrgUnit OrgUnitInfo `json:"OrgUnit"`
+	Access  struct {
 		IsActive  bool       `json:"IsActive"`
 		StartDate *time.Time `json:"StartDate"`
 		EndDate   *time.Time `json:"EndDate"`
 		CanAccess bool       `json:"CanAccess"`
+
+		// ClasslistRoleName is the caller's own role in this course
+		// ("Learner"). Unlike the numeric role ids on the classlist, it
+		// arrives already named.
+		ClasslistRoleName string `json:"ClasslistRoleName"`
+
+		// LastAccessed is nil for a course the student has never opened.
+		LastAccessed *time.Time `json:"LastAccessed"`
 	} `json:"Access"`
 }
 

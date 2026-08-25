@@ -378,8 +378,11 @@ func TestLiveRequestPaths(t *testing.T) {
 		call func() error
 		want string
 	}{
+		// The filter is part of the contract, not incidental: unfiltered, this
+		// route returns departments, semesters, and the org root alongside
+		// actual classes. Query keys sort alphabetically in the encoded URL.
 		{"enrollments", func() error { _, err := c.MyEnrollments(ctx); return err },
-			"/d2l/api/lp/1.9/enrollments/myenrollments/"},
+			"/d2l/api/lp/1.9/enrollments/myenrollments/?canAccess=true&isActive=true&orgUnitTypeId=3"},
 		{"content root", func() error { _, err := c.ContentRoot(ctx, 6001); return err },
 			"/d2l/api/le/1.67/6001/content/root/"},
 		{"module structure", func() error { _, err := c.ModuleStructure(ctx, 6001, 771); return err },
@@ -576,7 +579,7 @@ func enrollmentPager(t *testing.T, pages int) *httptest.Server {
 			page, _ = strconv.Atoi(b)
 		}
 		resp := MyEnrollmentsResponse{
-			Items: []MyOrgUnitInfo{{OrgUnitInfo: OrgUnitInfo{Id: 7000 + page, Code: "PAGE" + strconv.Itoa(page)}}},
+			Items: []MyOrgUnitInfo{{OrgUnit: OrgUnitInfo{Id: 7000 + page, Code: "PAGE" + strconv.Itoa(page)}}},
 		}
 		resp.PagingInfo.HasMoreItems = page+1 < pages
 		if resp.PagingInfo.HasMoreItems {
@@ -599,7 +602,7 @@ func TestLiveEnrollmentsPaging(t *testing.T) {
 		t.Fatalf("got %d org units across 3 pages, want 3", len(got))
 	}
 	for i, u := range got {
-		if u.Id != 7000+i {
+		if u.OrgUnit.Id != 7000+i {
 			t.Errorf("page %d returned %+v — pages arrived out of order or were dropped", i, u)
 		}
 	}
@@ -611,7 +614,7 @@ func TestLiveEnrollmentsPagingTerminates(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(MyEnrollmentsResponse{
 			PagingInfo: PagingInfo{Bookmark: "stuck", HasMoreItems: true},
-			Items:      []MyOrgUnitInfo{{OrgUnitInfo: OrgUnitInfo{Id: 1}}},
+			Items:      []MyOrgUnitInfo{{OrgUnit: OrgUnitInfo{Id: 1}}},
 		})
 	}))
 	t.Cleanup(srv.Close)

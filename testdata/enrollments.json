@@ -5,7 +5,7 @@
   },
   "Items": [
     {
-      "OrgUnitInfo": {
+      "OrgUnit": {
         "Id": 6001,
         "Type": {
           "Id": 3,
@@ -19,11 +19,13 @@
         "IsActive": true,
         "StartDate": "2026-01-26T05:00:00.000Z",
         "EndDate": "2026-05-22T04:00:00.000Z",
-        "CanAccess": true
+        "CanAccess": true,
+        "ClasslistRoleName": "Learner",
+        "LastAccessed": "2026-03-04T18:22:10.000Z"
       }
     },
     {
-      "OrgUnitInfo": {
+      "OrgUnit": {
         "Id": 6002,
         "Type": {
           "Id": 3,
@@ -37,11 +39,13 @@
         "IsActive": true,
         "StartDate": "2026-01-26T05:00:00.000Z",
         "EndDate": "2026-05-22T04:00:00.000Z",
-        "CanAccess": true
+        "CanAccess": true,
+        "ClasslistRoleName": "Learner",
+        "LastAccessed": "2026-03-03T14:05:41.000Z"
       }
     },
     {
-      "OrgUnitInfo": {
+      "OrgUnit": {
         "Id": 101,
         "Type": {
           "Id": 5,
@@ -55,7 +59,9 @@
         "IsActive": true,
         "StartDate": null,
         "EndDate": null,
-        "CanAccess": true
+        "CanAccess": true,
+        "ClasslistRoleName": "Learner",
+        "LastAccessed": null
       }
     }
   ]

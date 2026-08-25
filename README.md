@@ -358,7 +358,7 @@ The `Client` interface tracks real routes so `LiveClient` is a transport swap, n
 
 ```go
 type Client interface {
-    MyEnrollments(ctx) ([]OrgUnitInfo, error)
+    MyEnrollments(ctx) ([]MyOrgUnitInfo, error)   // carries the access window
     ContentRoot(ctx, orgUnitID) ([]Module, error)
     ModuleStructure(ctx, orgUnitID, moduleID) ([]ContentObject, error)
     TopicFile(ctx, orgUnitID, topicID) (io.ReadCloser, string, error)

@@ -37,7 +37,7 @@ func TestMyEnrollments(t *testing.T) {
 	// nothing back, so the fixture keeps one around on purpose.
 	var courses, other int
 	for _, u := range got {
-		if u.Type.Code == "Course Offering" {
+		if u.OrgUnit.Type.Code == "Course Offering" {
 			courses++
 		} else {
 			other++
@@ -47,8 +47,26 @@ func TestMyEnrollments(t *testing.T) {
 		t.Errorf("got %d courses and %d non-courses, want 2 and 1", courses, other)
 	}
 
-	if got[0].Id != 6001 || got[0].Code != "MTH1003" || got[0].Name != "Calculus I" {
-		t.Errorf("first enrollment = %+v", got[0])
+	first := got[0].OrgUnit
+	if first.Id != 6001 || first.Code != "MTH1003" || first.Name != "Calculus I" {
+		t.Errorf("first enrollment = %+v", first)
+	}
+
+	// The wrapper's JSON key is "OrgUnit". Spelling it "OrgUnitInfo" — as this
+	// package did until a live response proved otherwise — is not an unmarshal
+	// error, so the failure looks like three enrollments that all came back
+	// blank. Assert a populated org unit, not just a count.
+	if first == (OrgUnitInfo{}) {
+		t.Error("first enrollment decoded to a zero org unit: the Items[].OrgUnit key is misspelled")
+	}
+
+	// Access travels with the enrollment because it is the only way to tell a
+	// class running now from one that ended two years ago.
+	if got[0].Access.StartDate == nil || got[0].Access.EndDate == nil {
+		t.Error("access window missing: courses cannot be filtered to the current term without it")
+	}
+	if got[0].Access.ClasslistRoleName != "Learner" {
+		t.Errorf("ClasslistRoleName = %q, want Learner", got[0].Access.ClasslistRoleName)
 	}
 }
 
