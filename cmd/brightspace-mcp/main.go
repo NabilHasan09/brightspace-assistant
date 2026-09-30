@@ -119,18 +119,35 @@ func run(expose, fixtures, nowFlag, tz, roles string) error {
 // student path to registering a Valence OAuth client, so credentials are the
 // exception rather than the default.
 //
-// D2L_ACCESS_TOKEN is a token obtained by hand, which is how a real tenant gets
-// probed the first time. The full authorization code flow belongs with the rest
-// of the OAuth work, not here.
+// Three ways to reach a real tenant, in descending order of durability:
+//
+//   - D2L_ACCESS_TOKEN — a bearer token obtained by hand. The full authorization
+//     code flow belongs with the rest of the OAuth work, not here.
+//   - D2L_COOKIE_FILE — a path holding a session cookie, re-read before every
+//     request. Preferred over D2L_COOKIE for a server, because a session that
+//     expires mid-run is then fixed by overwriting the file: no restart, and
+//     over stdio a restart would take the MCP client's session down too. Write
+//     it with cmd/d2l-login.
+//   - D2L_COOKIE — the same value inline, which is fine for a one-off command
+//     and wrong for anything long-lived.
 func newClient(fixtures string) (brightspace.Client, string, error) {
 	host := strings.TrimSpace(os.Getenv("D2L_HOST"))
 	token := strings.TrimSpace(os.Getenv("D2L_ACCESS_TOKEN"))
+	cookieFile := strings.TrimSpace(os.Getenv("D2L_COOKIE_FILE"))
+	cookie := strings.TrimSpace(os.Getenv("D2L_COOKIE"))
 
-	if host != "" && token != "" {
-		return brightspace.NewLiveClient(host, brightspace.StaticTokenClient(token)), "live: " + host, nil
-	}
-	if host != "" {
-		return nil, "", fmt.Errorf("D2L_HOST is set but D2L_ACCESS_TOKEN is not: refusing to fall back to fixtures silently when a tenant was configured")
+	switch {
+	case host != "" && token != "":
+		return brightspace.NewLiveClient(host, brightspace.StaticTokenClient(token)), "live: " + host + " (bearer token)", nil
+	case host != "" && cookieFile != "":
+		// Not checked for existence here on purpose: the file is read per
+		// request, so one that appears later works, and one that vanishes
+		// produces a clear per-call error rather than a startup failure.
+		return brightspace.NewLiveClient(host, brightspace.CookieFileClient(cookieFile)), "live: " + host + " (session cookie from " + cookieFile + ")", nil
+	case host != "" && cookie != "":
+		return brightspace.NewLiveClient(host, brightspace.CookieClient(cookie)), "live: " + host + " (session cookie)", nil
+	case host != "":
+		return nil, "", fmt.Errorf("D2L_HOST is set but none of D2L_ACCESS_TOKEN, D2L_COOKIE_FILE, or D2L_COOKIE is: refusing to fall back to fixtures silently when a tenant was configured")
 	}
 
 	info, err := os.Stat(fixtures)

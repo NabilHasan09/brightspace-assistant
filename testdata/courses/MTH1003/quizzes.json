@@ -9,7 +9,10 @@
       "StartDate": "2026-03-19T13:00:00.000Z",
       "EndDate": "2026-03-19T15:00:00.000Z",
       "DueDate": "2026-03-19T15:00:00.000Z",
-      "AttemptsAllowed": 1
+      "AttemptsAllowed": {
+        "IsUnlimited": false,
+        "NumberOfAttemptsAllowed": 1
+      }
     },
     {
       "QuizId": 4801,
@@ -29,7 +32,10 @@
       "StartDate": "2026-02-12T13:00:00.000Z",
       "EndDate": "2026-02-12T15:00:00.000Z",
       "DueDate": "2026-02-12T15:00:00.000Z",
-      "AttemptsAllowed": 1
+      "AttemptsAllowed": {
+        "IsUnlimited": false,
+        "NumberOfAttemptsAllowed": 1
+      }
     }
   ]
 }

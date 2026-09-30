@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -296,11 +297,14 @@ func TestLiveMatchesMock(t *testing.T) {
 	march := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	april := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 
-	liveEvents, err := live.MyEvents(ctx, nil, march, april)
+	// Both courses explicitly: the calendar route rejects an unscoped query, so
+	// neither implementation accepts a nil id list.
+	courses := []int{6001, 6002}
+	liveEvents, err := live.MyEvents(ctx, courses, march, april)
 	if err != nil {
 		t.Fatalf("live MyEvents: %v", err)
 	}
-	mockEvents, _ := mock.MyEvents(ctx, nil, march, april)
+	mockEvents, _ := mock.MyEvents(ctx, courses, march, april)
 	sameJSON(t, "MyEvents", liveEvents, mockEvents)
 
 	liveNews, err := live.NewsItems(ctx, 6001, time.Time{})
@@ -440,8 +444,11 @@ func TestLiveEventsQuery(t *testing.T) {
 
 	req := tn.lastRequest(t)
 	for _, want := range []string{
-		"startDateTime=2026-03-01T00%3A00%3A00Z",
-		"endDateTime=2026-04-01T00%3A00%3A00Z",
+		// Milliseconds are mandatory even when zero. A live tenant answers 400
+		// for "...T00:00:00Z", which is what time.RFC3339 produces, so this
+		// assertion is the contract rather than an incidental formatting choice.
+		"startDateTime=2026-03-01T00%3A00%3A00.000Z",
+		"endDateTime=2026-04-01T00%3A00%3A00.000Z",
 		"orgUnitIdsCSV=6001%2C6002",
 	} {
 		if !strings.Contains(req, want) {
@@ -677,6 +684,152 @@ func TestStaticTokenClient(t *testing.T) {
 	}
 }
 
+func TestCookieClient(t *testing.T) {
+	var gotCookie string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCookie = r.Header.Get("Cookie")
+		w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	const session = "d2lSecureSessionVal=abc; d2lSessionVal=def"
+	if _, err := NewLiveClient(srv.URL, CookieClient(session)).DropboxFolders(context.Background(), 6001); err != nil {
+		t.Fatalf("DropboxFolders: %v", err)
+	}
+	if gotCookie != session {
+		t.Errorf("Cookie = %q, want %q", gotCookie, session)
+	}
+}
+
+// The point of reading the file per request: a session that expires mid-run is
+// replaced by overwriting one file, and the next call succeeds. Capturing the
+// string at construction would mean restarting the process, which over MCP
+// stdio takes the client's session down with it.
+func TestCookieFileClientPicksUpARefreshedSession(t *testing.T) {
+	var gotCookie string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCookie = r.Header.Get("Cookie")
+		w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	path := filepath.Join(t.TempDir(), "cookie")
+	write := func(cookie string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(cookie), 0o600); err != nil {
+			t.Fatalf("writing cookie: %v", err)
+		}
+	}
+
+	// A trailing newline, because pbpaste and every editor leave one.
+	const stale = "d2lSecureSessionVal=stale; d2lSessionVal=one\n"
+	const fresh = "d2lSecureSessionVal=fresh; d2lSessionVal=two"
+	write(stale)
+
+	c := NewLiveClient(srv.URL, CookieFileClient(path))
+	if _, err := c.DropboxFolders(context.Background(), 6001); err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	if want := strings.TrimSpace(stale); gotCookie != want {
+		t.Errorf("first call sent %q, want %q with the newline stripped", gotCookie, want)
+	}
+
+	// Same client, no restart.
+	write(fresh)
+	if _, err := c.DropboxFolders(context.Background(), 6001); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	if gotCookie != fresh {
+		t.Errorf("second call sent %q, want the refreshed %q", gotCookie, fresh)
+	}
+}
+
+// An empty or wrong-host cookie must fail before the request goes out. Left to
+// the tenant it comes back 403, and a 403 reads as "this route is restricted"
+// rather than "you sent no credentials" — which is the wrong thing to debug.
+func TestCookieClientRejectsUnusableCookies(t *testing.T) {
+	var reached bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	empty := filepath.Join(dir, "empty")
+	if err := os.WriteFile(empty, []byte("   \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Analytics cookies only, as if copied from a request to some other host.
+	wrongHost := filepath.Join(dir, "wrong-host")
+	if err := os.WriteFile(wrongHost, []byte("_ga=GA1.2.123; _fbp=fb.1.456"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		client *http.Client
+		want   string
+	}{
+		{"empty string", CookieClient(""), "is empty"},
+		{"whitespace-only file", CookieFileClient(empty), "is empty"},
+		{"no session cookie", CookieFileClient(wrongHost), "carries no " + sessionCookieName},
+		{"missing file", CookieFileClient(filepath.Join(dir, "absent")), "reading session cookie"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reached = false
+			_, err := NewLiveClient(srv.URL, tt.client).DropboxFolders(context.Background(), 6001)
+			if err == nil {
+				t.Fatal("request succeeded with an unusable cookie")
+			}
+			if reached {
+				t.Error("an unusable cookie still reached the tenant")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("err = %v, want it to mention %q", err, tt.want)
+			}
+		})
+	}
+}
+
+// An expired session is the ordinary failure of cookie auth, and it does not
+// arrive as a 401: the tenant answers 200 with a single sign-on page. Reported
+// as a decode error it reads as a schema bug, which is the wrong thing to go
+// looking at when the fix is to log in again.
+func TestLiveHTMLLoginPageIsUnauthorized(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(`<!doctype html><html><body>Sign in</body></html>`))
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := NewLiveClient(srv.URL, srv.Client()).MyEnrollments(context.Background())
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("err = %v, want ErrUnauthorized", err)
+	}
+}
+
+// A server that sets no content type at all is sloppy, not signed out. Its
+// body still decodes, so the HTML guard must not reject it.
+func TestLiveMissingContentTypeStillDecodes(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(MyEnrollmentsResponse{
+			Items: []MyOrgUnitInfo{{OrgUnit: OrgUnitInfo{Id: 6001, Code: "MTH1003"}}},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	got, err := NewLiveClient(srv.URL, srv.Client()).MyEnrollments(context.Background())
+	if err != nil {
+		t.Fatalf("MyEnrollments: %v", err)
+	}
+	if len(got) != 1 || got[0].OrgUnit.Code != "MTH1003" {
+		t.Errorf("got %+v, want one MTH1003 enrollment", got)
+	}
+}
+
 // Quizzes pages with a Next link rather than a bookmark. Two paging
 // conventions in one API is D2L's, not ours, and getting the second one wrong
 // silently truncates a course's exam list.
@@ -748,16 +901,20 @@ func TestLiveQuizzesRejectsOffHostNext(t *testing.T) {
 
 func TestLiveClasslistPaging(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The route is named "paged" and takes a bookmark, but hands that
+		// bookmark back inside a Next link rather than a PagingInfo block —
+		// verified against a live tenant, where the bookmark shape decoded to
+		// zero people on a full page and reported no error.
 		page := 0
 		if b := r.URL.Query().Get("bookmark"); b != "" {
 			page, _ = strconv.Atoi(b)
 		}
 		out := ClasslistPage{
-			Items: []ClasslistUser{{Identifier: strconv.Itoa(500 + page)}},
+			Objects: []ClasslistUser{{Identifier: strconv.Itoa(500 + page)}},
 		}
-		out.PagingInfo.HasMoreItems = page+1 < 3
-		if out.PagingInfo.HasMoreItems {
-			out.PagingInfo.Bookmark = strconv.Itoa(page + 1)
+		if page+1 < 3 {
+			next := fmt.Sprintf("/d2l/api/le/%s/6001/classlist/paged/?bookmark=%d", testLEVersion, page+1)
+			out.Next = &next
 		}
 		json.NewEncoder(w).Encode(out)
 	}))

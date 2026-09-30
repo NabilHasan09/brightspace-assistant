@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,14 +17,33 @@ import (
 
 // D2L versions its LP (Learning Platform) and LE (Learning Environment) APIs
 // independently, and the docs write both as "(version)" rather than a number.
+// Note these are not decimals: 1.9 is minor version 9, far older than 1.30.
 //
-// These defaults are UNVERIFIED — a starting point, not a fact. A tenant
-// publishes the versions it actually supports at /d2l/api/versions/, which
-// needs no authentication. Check it on first connection and set the fields
-// explicitly rather than trusting these.
+// Verified against brightspace.cuny.edu, which serves LP through 1.63 and LE
+// through 1.97 and still supports every version back to 1.0.
+//
+// Version choice is not cosmetic, because routes were added over time and an
+// absent one answers 404 — indistinguishable, at the call site, from a course
+// that simply has no quizzes. Measured floors, below which a route 404s:
+//
+//	calendar/events/myEvents/   LE 1.18
+//	{orgUnit}/classlist/paged/  LE 1.26
+//	{orgUnit}/quizzes/          LE 1.28
+//	everything else             LE 1.9, LP 1.9
+//
+// So LE 1.9 silently returned no quizzes and no calendar events at all. The
+// pin is the tenant's latest rather than that 1.28 floor because the types in
+// this package are written from D2L's current docs, and asking an old version
+// for a current schema is how fields come back zeroed with no error. Newer
+// versions are strictly additive here — LP 1.63 adds HomeUrl, ImageUrl, and
+// PinDate to the enrollments response and removes nothing.
+//
+// Both are overridable per client. A tenant on older Brightspace can drop to
+// LE 1.28 and lose nothing this package reads; /d2l/api/versions/ reports what
+// any tenant supports and needs no authentication.
 const (
-	DefaultLPVersion = "1.9"
-	DefaultLEVersion = "1.9"
+	DefaultLPVersion = "1.63"
+	DefaultLEVersion = "1.97"
 )
 
 // maxErrorBody caps how much of a failed response is kept for the message.
@@ -104,6 +124,97 @@ func (t *bearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.next.RoundTrip(clone)
 }
 
+// CookieClient authenticates as a logged-in browser session rather than as an
+// OAuth client, by replaying the Cookie header from one.
+//
+// This exists because the tenant's own web UI calls these same API routes with
+// nothing but a session cookie, which is a door a student can open without an
+// admin registering an OAuth client. Pass the raw header value, exactly as
+// copied from a browser's request:
+//
+//	brightspace.CookieClient("d2lSecureSessionVal=...; d2lSessionVal=...")
+//
+// The tradeoff against a bearer token is lifetime and failure mode. Sessions
+// expire in hours, and an expired one does not come back 401 — the tenant
+// redirects to single sign-on and serves an HTML login page with status 200.
+// getJSON checks the content type for exactly that reason.
+//
+// A long-running process wants CookieFileClient instead, so a fresh session can
+// be supplied without a restart.
+func CookieClient(cookie string) *http.Client {
+	return cookieClient(func() (string, error) {
+		return validCookie(cookie, "the cookie passed to CookieClient")
+	})
+}
+
+// CookieFileClient reads the cookie from path before every request rather than
+// capturing it once at construction.
+//
+// Sessions expire in hours, and a server that captured the string at startup has
+// to be restarted to pick up a new one — which over MCP stdio tears down the
+// client's session too. Reading per request makes refreshing a session an
+// overwrite of one file, and the next call succeeds with no restart.
+//
+// The read costs a few microseconds against a page the OS has cached, next to a
+// network round trip, so it is not worth hiding behind an mtime check.
+func CookieFileClient(path string) *http.Client {
+	return cookieClient(func() (string, error) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("brightspace: reading session cookie: %w", err)
+		}
+		return validCookie(string(raw), path)
+	})
+}
+
+func cookieClient(read func() (string, error)) *http.Client {
+	c := DefaultHTTPClient()
+	c.Transport = &cookieTransport{read: read, next: c.Transport}
+	return c
+}
+
+// sessionCookieName is the cookie that actually authenticates. It is HttpOnly,
+// so document.cookie in a browser console cannot see it — the value has to come
+// from a request's headers or from the browser's own cookie store.
+const sessionCookieName = "d2lSecureSessionVal"
+
+// validCookie rejects a cookie that cannot possibly authenticate, and says which
+// way it is wrong.
+//
+// Worth checking rather than letting the tenant answer: an empty cookie sends an
+// unauthenticated request, which comes back 403, and a 403 reads as "this route
+// is restricted for you" rather than "you sent no credentials". That misreading
+// costs more time than the check does.
+func validCookie(cookie, source string) (string, error) {
+	// pbpaste and editors both leave a trailing newline, which is harmless in a
+	// header but makes an otherwise empty file look like it has content.
+	cookie = strings.TrimSpace(cookie)
+	switch {
+	case cookie == "":
+		return "", fmt.Errorf("brightspace: %s is empty — copy the Cookie header from a logged-in browser request: %w",
+			source, ErrUnauthorized)
+	case !strings.Contains(cookie, sessionCookieName):
+		return "", fmt.Errorf("brightspace: %s carries no %s, so it was copied from a request to some other host: %w",
+			source, sessionCookieName, ErrUnauthorized)
+	}
+	return cookie, nil
+}
+
+type cookieTransport struct {
+	read func() (string, error)
+	next http.RoundTripper
+}
+
+func (t *cookieTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	cookie, err := t.read()
+	if err != nil {
+		return nil, err
+	}
+	clone := req.Clone(req.Context())
+	clone.Header.Set("Cookie", cookie)
+	return t.next.RoundTrip(clone)
+}
+
 // APIError is any non-200 response.
 //
 // It carries a prefix of the body because "status 500" alone is unactionable
@@ -170,7 +281,12 @@ func (c *LiveClient) do(ctx context.Context, rawURL, accept string) (*http.Respo
 
 	resp, err := c.httpClient().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("brightspace: GET %s: %w", rawURL, err)
+		// No URL prefix of our own: http.Client already wraps transport errors
+		// in a *url.Error that names the method and URL, so adding one prints
+		// the same URL twice. That noise lands on the most common failure of
+		// cookie auth, an expired session, which is where a legible message is
+		// worth the most.
+		return nil, fmt.Errorf("brightspace: %w", err)
 	}
 	if resp.StatusCode == http.StatusOK {
 		return resp, nil
@@ -203,10 +319,48 @@ func (c *LiveClient) getJSON(ctx context.Context, rawURL string, dst any) error 
 	}
 	defer resp.Body.Close()
 
+	// An expired session is not a 401. The tenant redirects to single sign-on
+	// and serves an HTML login page with status 200, so the only symptom is a
+	// JSON syntax error pointing at "<" — which sends you hunting for a schema
+	// bug when the real fix is to log in again.
+	//
+	// Matching HTML specifically rather than "not JSON": a server that omits
+	// the header entirely is sloppy, not broken, and its body still decodes.
+	if ct := resp.Header.Get("Content-Type"); strings.Contains(ct, "text/html") {
+		return fmt.Errorf("brightspace: %s answered with HTML instead of JSON, which usually means the session expired and the request was redirected to a login page: %w",
+			rawURL, ErrUnauthorized)
+	}
+
 	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
 		return fmt.Errorf("brightspace: decode %s: %w", rawURL, err)
 	}
 	return nil
+}
+
+// ProductVersion is one entry from /d2l/api/versions/, which reports the API
+// versions a tenant actually serves.
+type ProductVersion struct {
+	ProductCode       string   `json:"ProductCode"`
+	LatestVersion     string   `json:"LatestVersion"`
+	SupportedVersions []string `json:"SupportedVersions"`
+}
+
+// Versions reports every product code the tenant serves and the versions it
+// supports for each.
+//
+// This is the one route that is not itself versioned, which makes it the right
+// first call against an unfamiliar tenant: LPVersion and LEVersion are guesses
+// until something authoritative sets them, and a wrong version fails as a 404
+// that looks identical to a route that does not exist.
+//
+// Not part of Client — it answers a question about the tenant rather than
+// about a course, and MockClient has no meaningful answer to give.
+func (c *LiveClient) Versions(ctx context.Context) ([]ProductVersion, error) {
+	var out []ProductVersion
+	if err := c.getJSON(ctx, c.BaseURL+"/d2l/api/versions/", &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // MyEnrollments is the one paged route in this set. A student has few
@@ -316,20 +470,38 @@ func (c *LiveClient) DropboxFolders(ctx context.Context, orgUnitID int) ([]Dropb
 	return folders, nil
 }
 
+// d2lTimestamp is the only timestamp format the calendar route accepts.
+//
+// It is RFC 3339 with the milliseconds always present, including when they are
+// zero. time.RFC3339 omits them and time.RFC3339Nano drops trailing zeros, so
+// both produce "...T00:00:00Z" — which this route rejects as 400 Invalid
+// Parameters. Verified against a live tenant; the docs do not mention it.
+const d2lTimestamp = "2006-01-02T15:04:05.000Z"
+
 func (c *LiveClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end time.Time) ([]CalendarEvent, error) {
-	q := url.Values{}
-	q.Set("startDateTime", start.UTC().Format(time.RFC3339))
-	q.Set("endDateTime", end.UTC().Format(time.RFC3339))
-	if len(orgUnitIDs) > 0 {
-		ids := make([]string, len(orgUnitIDs))
-		for i, id := range orgUnitIDs {
-			ids[i] = strconv.Itoa(id)
-		}
-		q.Set("orgUnitIdsCSV", strings.Join(ids, ","))
+	// The docs describe orgUnitIdsCSV as optional, but a live tenant answers
+	// 400 without it. Refusing here beats sending a request that cannot
+	// succeed, and the caller always knows which courses it means.
+	if len(orgUnitIDs) == 0 {
+		return nil, fmt.Errorf("brightspace: MyEvents needs at least one org unit id: the calendar route rejects an unscoped query")
 	}
 
-	var events []CalendarEvent
-	if err := c.getJSON(ctx, c.leURL("/calendar/events/myEvents/", q), &events); err != nil {
+	ids := make([]string, len(orgUnitIDs))
+	for i, id := range orgUnitIDs {
+		ids[i] = strconv.Itoa(id)
+	}
+
+	q := url.Values{}
+	q.Set("startDateTime", start.UTC().Format(d2lTimestamp))
+	q.Set("endDateTime", end.UTC().Format(d2lTimestamp))
+	q.Set("orgUnitIdsCSV", strings.Join(ids, ","))
+
+	// Paged in the same Next-link envelope as quizzes, not a bare array. A
+	// course with more events than one page would otherwise silently lose the
+	// tail, which for a deadline list means missing exactly the work furthest
+	// out.
+	events, err := pageObjects[CalendarEvent](ctx, c, c.leURL("/calendar/events/myEvents/", q))
+	if err != nil {
 		return nil, err
 	}
 
@@ -411,13 +583,27 @@ func (c *LiveClient) DiscussionPosts(ctx context.Context, orgUnitID, forumID, to
 
 // Quizzes follows D2L's Next-link paging rather than the bookmark convention
 // used by enrollments and the classlist. Both live in this file because both
-// are real; see QuizListPage.
+// are real; see ObjectListPage.
 func (c *LiveClient) Quizzes(ctx context.Context, orgUnitID int) ([]Quiz, error) {
-	out := []Quiz{}
-	next := c.leURL(fmt.Sprintf("/%d/quizzes/", orgUnitID), nil)
+	out, err := pageObjects[Quiz](ctx, c, c.leURL(fmt.Sprintf("/%d/quizzes/", orgUnitID), nil))
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].SortOrder < out[j].SortOrder })
+	return out, nil
+}
 
-	for next != "" {
-		var page QuizListPage
+// pageObjects walks a Next-linked list to the end and returns every object.
+//
+// A free function rather than a method because Go methods cannot take type
+// parameters, and quizzes and the calendar both need this — the calendar
+// arrives in the same envelope, which is only known because decoding it as a
+// bare array failed against a live tenant.
+func pageObjects[T any](ctx context.Context, c *LiveClient, first string) ([]T, error) {
+	out := []T{}
+
+	for next := first; next != ""; {
+		var page ObjectListPage[T]
 		if err := c.getJSON(ctx, next, &page); err != nil {
 			return nil, err
 		}
@@ -429,14 +615,13 @@ func (c *LiveClient) Quizzes(ctx context.Context, orgUnitID int) ([]Quiz, error)
 			// Next is a link, absolute or tenant-relative. Resolving it against
 			// BaseURL rather than trusting it whole keeps a malformed or
 			// off-host value from redirecting an authenticated request
-			// somewhere it should not go.
+			// somewhere it should not go. Equal to the current URL means the
+			// tenant is pointing at itself, which would loop forever.
 			if resolved := c.resolveNext(*page.Next); resolved != current {
 				next = resolved
 			}
 		}
 	}
-
-	sort.Slice(out, func(i, j int) bool { return out[i].SortOrder < out[j].SortOrder })
 	return out, nil
 }
 
@@ -458,24 +643,16 @@ func (c *LiveClient) resolveNext(link string) string {
 	return base.ResolveReference(u).String()
 }
 
+// Classlist pages 25 people at a time. Walking every page matters more here
+// than elsewhere: a large lecture puts the instructor and TAs on an arbitrary
+// page, so stopping at the first one answers "who is my TA?" with 25 students
+// and no teacher.
+//
+// A course whose instructor has disabled the Classlist tool answers 403. That
+// is a per-course configuration rather than a broken route or an expired
+// session — callers should degrade to "not published for this course".
 func (c *LiveClient) Classlist(ctx context.Context, orgUnitID int) ([]ClasslistUser, error) {
-	out := []ClasslistUser{}
-	q := url.Values{}
-
-	for {
-		var page ClasslistPage
-		u := c.leURL(fmt.Sprintf("/%d/classlist/paged/", orgUnitID), q)
-		if err := c.getJSON(ctx, u, &page); err != nil {
-			return nil, err
-		}
-		out = append(out, page.Items...)
-
-		next := page.PagingInfo.Bookmark
-		if !page.PagingInfo.HasMoreItems || next == "" || next == q.Get("bookmark") {
-			return out, nil
-		}
-		q.Set("bookmark", next)
-	}
+	return pageObjects[ClasslistUser](ctx, c, c.leURL(fmt.Sprintf("/%d/classlist/paged/", orgUnitID), nil))
 }
 
 func (c *LiveClient) SubmitToDropbox(ctx context.Context, orgUnitID, folderID int, comment string, files []Upload) (*Submission, error) {

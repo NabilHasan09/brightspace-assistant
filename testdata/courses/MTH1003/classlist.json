@@ -1,21 +1,20 @@
 {
-  "PagingInfo": {
-    "Bookmark": "",
-    "HasMoreItems": false
-  },
-  "Items": [
+  "Next": null,
+  "Objects": [
     {
       "Identifier": "91001",
       "ProfileIdentifier": "pRoFiLe91001",
       "DisplayName": "Prof. Amara Okonkwo",
       "FirstName": "Amara",
       "LastName": "Okonkwo",
-      "UserName": "aokonkwo",
       "OrgDefinedId": "EMP00412",
       "Email": "amara.okonkwo@example.cuny.edu",
       "RoleId": 103,
       "LastAccessed": "2026-03-06T12:04:00.000Z",
-      "IsOnline": false
+      "IsOnline": false,
+      "Username": "aokonkwo",
+      "ClasslistRoleDisplayName": "Instructor",
+      "Pronouns": ""
     },
     {
       "Identifier": "91004",
@@ -23,12 +22,14 @@
       "DisplayName": "Rin Nakamura",
       "FirstName": "Rin",
       "LastName": "Nakamura",
-      "UserName": "rnakamura",
       "OrgDefinedId": "EMP00988",
       "Email": "rin.nakamura@example.cuny.edu",
       "RoleId": 104,
       "LastAccessed": "2026-03-05T20:41:00.000Z",
-      "IsOnline": true
+      "IsOnline": true,
+      "Username": "rnakamura",
+      "ClasslistRoleDisplayName": "Teaching Assistant",
+      "Pronouns": ""
     },
     {
       "Identifier": "91002",
@@ -36,12 +37,14 @@
       "DisplayName": "Dana Whitfield",
       "FirstName": "Dana",
       "LastName": "Whitfield",
-      "UserName": null,
       "OrgDefinedId": null,
       "Email": null,
       "RoleId": 110,
       "LastAccessed": null,
-      "IsOnline": false
+      "IsOnline": false,
+      "Username": null,
+      "ClasslistRoleDisplayName": "Learner",
+      "Pronouns": ""
     }
   ]
 }

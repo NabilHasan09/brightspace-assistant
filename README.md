@@ -431,7 +431,7 @@ Unlock order: faculty sponsor → CUNY Third-Party Tools request → admin regis
 | Scope | Serves |
 |---|---|
 | `enrollment:own_enrollment:read` | course list |
-| `enrollment:orgunit:read` | `classlist/paged/` — instructor/TA lookup for `logistics` |
+| `enrollment:orgunit:read` | `classlist/paged/` — instructor/TA lookup for `logistics`; an LE route despite reading like enrollment data |
 | `content:modules:readonly` · `content:topics:readonly` · `content:file:read` | `materials`, `logistics` |
 | `calendar:my_events:read` | `deadlines`, `planning` |
 | `quizzing:quizzes:read` | quiz and exam dates for `deadlines` |
@@ -445,11 +445,23 @@ Unlock order: faculty sponsor → CUNY Third-Party Tools request → admin regis
 
 Every endpoint and scope above is read from D2L's official Valence documentation (`docs.valence.desire2learn.com`) — `res/news.html`, `res/grade.html`, `res/calendar.html`, `res/discuss.html`, `res/content.html`, `res/dropbox.html`, `res/enroll.html`, `res/quiz.html`, `basic/oauth2.html`.
 
-**None of it has been executed against a live tenant** — there are no credentials yet. Two gaps to close on day one of live access:
+**All thirteen read routes have now been executed against a live tenant** (`brightspace.cuny.edu`), which turned out to matter more than expected. OAuth still requires an admin, but the `/d2l/api/` routes accept the session cookies a logged-in browser already holds, so no client registration is needed to read your own data. `internal/brightspace/realtenant_test.go` is that sweep, opt-in behind `D2L_HOST` and `D2L_COOKIE`.
 
-- **Version numbers are unpinned.** The docs write `(version)`; LP and LE version independently. Pin both against the tenant before writing `LiveClient`.
-- **Response shapes are unvalidated.** The plan depends on fixtures matching real schemas — capture real responses on first connection and diff them against `testdata/` rather than assuming.
+**Versions are pinned and measured: LP 1.63, LE 1.97.** Twelve of the thirteen routes are LE. Routes were added to the API over time, and an absent one answers 404 — indistinguishable at the call site from a course that has no quizzes. Measured floors, below which a route does not exist: calendar LE 1.18, classlist LE 1.26, quizzes LE 1.28, everything else LE 1.9. The earlier guess of LE 1.9 therefore returned no quizzes and no calendar events at all, silently.
 
-**Known org-configurable behavior:** `classlist` field visibility (email, username, role) is controlled by the Classlist tool's settings, so "who's my TA?" may return a name without contact details depending on how CUNY configured it. `logistics` should degrade gracefully rather than treat missing fields as an error.
+**Six schema defects, five of them silent.** The fixtures had been written to match the structs rather than the API, so both agreed with each other and disagreed with Brightspace. In Go a missing JSON key is not an unmarshal error, so a wrong tag yields correctly-counted, fully-zeroed values and nothing reports a problem:
+
+| Defect | Symptom |
+|---|---|
+| `Items[].OrgUnitInfo` → `OrgUnit` | every enrollment zeroed, right row count |
+| `CalendarEvent.IsAllDay` → `IsAllDayEvent` | every event timed |
+| `CalendarEvent.Location` → `LocationName` | every event location-less |
+| `ClasslistUser.UserName` → `Username` | every username empty |
+| calendar and classlist decoded as bare arrays | calendar failed loudly; classlist returned 0 of 41 people |
+| `Quiz.AttemptsAllowed` int → object | failed loudly (the easy one) |
+
+Two undocumented request requirements, both found by 400s: the calendar route rejects `time.RFC3339` and needs milliseconds even when zero (`...T00:00:00.000Z`), and it requires `orgUnitIdsCSV` despite the docs calling it optional.
+
+**Confirmed org-configurable behavior:** at CUNY the classlist publishes `DisplayName`, `RoleId`, and `ClasslistRoleDisplayName`, and withholds email, username, and OrgDefinedId entirely — 0 of 25 populated. So `logistics` can name people and their roles but can never give contact details. An instructor can also switch the Classlist tool off per course, which answers 403; `get_classlist` degrades to an empty roster with an explanatory note rather than a tool error. The useful surprise is `ClasslistRoleDisplayName`, which spells the role out ("Learner", "Instructor") and makes "who's my TA?" answerable without the per-institution role mapping `WithRoleNames` was built for.
 
 Use the **authorization code grant**, not client credentials: submissions are attributed to the calling token, so it must be the student's own. When submission lands in v2, gate the write behind an explicit confirmation showing the resolved folder name and due date — a wrong-folder submission is a real, hard-to-undo consequence in someone's gradebook.

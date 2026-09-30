@@ -211,12 +211,24 @@ func (m *MockClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end 
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	var all []CalendarEvent
-	if err := m.readJSON("calendar-events.json", &all); err != nil {
-		return nil, err
+
+	// Rejecting an empty list because a live tenant does, even though the mock
+	// could happily answer "every course". A mock that is more permissive than
+	// the thing it stands in for is worse than no mock: every caller passes
+	// against fixtures and fails on first contact.
+	if len(orgUnitIDs) == 0 {
+		return nil, fmt.Errorf("brightspace: MyEvents needs at least one org unit id: the calendar route rejects an unscoped query")
 	}
 
-	// Empty means every enrolled course.
+	// The fixture carries the Next/Objects envelope because the live route
+	// does. Paging is not simulated — one page is enough to exercise callers,
+	// and LiveClient owns walking the links.
+	var page CalendarEventPage
+	if err := m.readJSON("calendar-events.json", &page); err != nil {
+		return nil, err
+	}
+	all := page.Objects
+
 	want := make(map[int]bool, len(orgUnitIDs))
 	for _, id := range orgUnitIDs {
 		want[id] = true
@@ -224,7 +236,7 @@ func (m *MockClient) MyEvents(ctx context.Context, orgUnitIDs []int, start, end 
 
 	out := make([]CalendarEvent, 0, len(all))
 	for _, e := range all {
-		if len(want) > 0 && !want[e.OrgUnitId] {
+		if !want[e.OrgUnitId] {
 			continue
 		}
 		if e.StartDateTime.Before(start) || !e.StartDateTime.Before(end) {
@@ -346,7 +358,7 @@ func (m *MockClient) Classlist(ctx context.Context, orgUnitID int) ([]ClasslistU
 	if err := m.readCourseJSON(ctx, orgUnitID, "classlist.json", &page); err != nil {
 		return nil, err
 	}
-	return page.Items, nil
+	return page.Objects, nil
 }
 
 func (m *MockClient) SubmitToDropbox(ctx context.Context, orgUnitID, folderID int, comment string, files []Upload) (*Submission, error) {

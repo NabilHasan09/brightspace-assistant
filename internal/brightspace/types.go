@@ -227,6 +227,11 @@ type DropboxFolder struct {
 // CalendarEvent is one dated item. The calendar endpoint accepts a CSV of org
 // unit ids alongside a date range, so "everything due next week across all my
 // courses" is a single call rather than a fan-out across enrollments.
+// The JSON keys are "IsAllDayEvent" and "LocationName", verified against a
+// live tenant. The obvious spellings — "IsAllDay" and "Location" — are wrong,
+// and wrong in the quiet way: a missing key is not an unmarshal error, so every
+// event decodes as a timed event with no location and nothing reports a
+// problem.
 type CalendarEvent struct {
 	CalendarEventId int       `json:"CalendarEventId"`
 	OrgUnitId       int       `json:"OrgUnitId"`
@@ -234,8 +239,26 @@ type CalendarEvent struct {
 	Description     string    `json:"Description"`
 	StartDateTime   time.Time `json:"StartDateTime"`
 	EndDateTime     time.Time `json:"EndDateTime"`
-	IsAllDay        bool      `json:"IsAllDay"`
-	Location        string    `json:"Location"`
+	IsAllDay        bool      `json:"IsAllDayEvent"`
+	Location        string    `json:"LocationName"`
+
+	// OrgUnitCode and OrgUnitName come back on every event, which means a
+	// calendar answer can name its course without a second lookup.
+	OrgUnitCode string `json:"OrgUnitCode"`
+	OrgUnitName string `json:"OrgUnitName"`
+
+	// AssociatedEntity links the event to the quiz or assignment it was
+	// generated from, so a due date and the thing that is due can be matched
+	// up rather than reported twice.
+	AssociatedEntity *AssociatedEntity `json:"AssociatedEntity"`
+}
+
+// AssociatedEntity identifies what a calendar event was generated from, e.g.
+// AssociatedEntityType "D2L.LE.Quizzing.Quiz" with the quiz's id.
+type AssociatedEntity struct {
+	AssociatedEntityId   int    `json:"AssociatedEntityId"`
+	AssociatedEntityType string `json:"AssociatedEntityType"`
+	Link                 string `json:"Link"`
 }
 
 // NewsItem is one course announcement.
@@ -323,29 +346,50 @@ type Post struct {
 // the availability window, which is not the same thing — a quiz can be due
 // before it closes.
 type Quiz struct {
-	QuizId          int        `json:"QuizId"`
-	Name            string     `json:"Name"`
-	IsActive        bool       `json:"IsActive"`
-	SortOrder       int        `json:"SortOrder"`
-	StartDate       *time.Time `json:"StartDate"`
-	EndDate         *time.Time `json:"EndDate"`
-	DueDate         *time.Time `json:"DueDate"`
-	AttemptsAllowed *int       `json:"AttemptsAllowed"`
+	QuizId    int        `json:"QuizId"`
+	Name      string     `json:"Name"`
+	IsActive  bool       `json:"IsActive"`
+	SortOrder int        `json:"SortOrder"`
+	StartDate *time.Time `json:"StartDate"`
+	EndDate   *time.Time `json:"EndDate"`
+	DueDate   *time.Time `json:"DueDate"`
+
+	// AttemptsAllowed is an object, not a count — verified against a live
+	// tenant, where an int here fails to decode. Unlimited attempts is a flag
+	// rather than a sentinel number, which is the reason for the wrapper.
+	AttemptsAllowed *AttemptsAllowed `json:"AttemptsAllowed"`
 }
 
-// QuizListPage is D2L's *other* paging envelope.
+// AttemptsAllowed is how many times a quiz may be taken.
 //
-// Enrollments and the classlist page with a PagingInfo bookmark; quizzes page
-// with a Next link. Two conventions in one API is a wart, not a mistake here —
-// modeling it as one shape would break against a real tenant.
-//
-// UNVERIFIED: that quizzes uses this envelope at all rather than a bare array.
-// Either guess fails loudly at first live contact (a JSON decode error), which
-// is the right failure shape.
-type QuizListPage struct {
-	Next    *string `json:"Next"`
-	Objects []Quiz  `json:"Objects"`
+// Unlimited is a flag rather than a sentinel count, so a nil pointer (the
+// tenant reported nothing) and IsUnlimited (the tenant reported no limit) are
+// different answers and must not be rendered the same way.
+type AttemptsAllowed struct {
+	IsUnlimited             bool `json:"IsUnlimited"`
+	NumberOfAttemptsAllowed int  `json:"NumberOfAttemptsAllowed"`
 }
+
+// ObjectListPage is D2L's *other* paging envelope.
+//
+// Enrollments and the classlist page with a PagingInfo bookmark; quizzes and
+// the calendar page with a Next link. Two conventions in one API is a wart,
+// not a mistake here — modeling it as one shape would break against a real
+// tenant.
+//
+// Verified against a live tenant for both quizzes and calendar events, which
+// is worth stating because the calendar was previously decoded as a bare array
+// and failed on first contact.
+type ObjectListPage[T any] struct {
+	Next    *string `json:"Next"`
+	Objects []T     `json:"Objects"`
+}
+
+// QuizListPage names the shape quizzes actually return.
+type QuizListPage = ObjectListPage[Quiz]
+
+// CalendarEventPage names the shape the calendar actually returns.
+type CalendarEventPage = ObjectListPage[CalendarEvent]
 
 // ClasslistUser is one enrolled person — how "who is my TA?" gets answered.
 //
@@ -358,25 +402,38 @@ type QuizListPage struct {
 // "Instructor" or "TA". Resolving it needs the roles route or a configured
 // mapping; do not hardcode a number.
 type ClasslistUser struct {
-	Identifier        string     `json:"Identifier"`
-	ProfileIdentifier string     `json:"ProfileIdentifier"`
-	DisplayName       string     `json:"DisplayName"`
-	FirstName         string     `json:"FirstName"`
-	LastName          string     `json:"LastName"`
-	UserName          string     `json:"UserName"`
-	OrgDefinedId      string     `json:"OrgDefinedId"`
-	Email             string     `json:"Email"`
-	RoleId            *int       `json:"RoleId"`
-	LastAccessed      *time.Time `json:"LastAccessed"`
-	IsOnline          bool       `json:"IsOnline"`
+	Identifier        string `json:"Identifier"`
+	ProfileIdentifier string `json:"ProfileIdentifier"`
+	DisplayName       string `json:"DisplayName"`
+	FirstName         string `json:"FirstName"`
+	LastName          string `json:"LastName"`
+
+	// The JSON key is "Username", not "UserName" — verified against a live
+	// tenant, where the camel-cased spelling silently decodes to empty.
+	UserName string `json:"Username"`
+
+	OrgDefinedId string `json:"OrgDefinedId"`
+	Email        string `json:"Email"`
+	Pronouns     string `json:"Pronouns"`
+
+	// ClasslistRoleDisplayName is the role already spelled out by the tenant —
+	// "Learner", "Instructor" — which is what makes "who is my TA?" answerable.
+	// RoleId alone cannot answer it: the numbers are assigned per institution
+	// and carry no portable meaning.
+	ClasslistRoleDisplayName string `json:"ClasslistRoleDisplayName"`
+
+	RoleId       *int       `json:"RoleId"`
+	LastAccessed *time.Time `json:"LastAccessed"`
+	IsOnline     bool       `json:"IsOnline"`
 }
 
-// ClasslistPage is the paged envelope around ClasslistUser. Same bookmark
-// convention as enrollments.
-type ClasslistPage struct {
-	PagingInfo PagingInfo      `json:"PagingInfo"`
-	Items      []ClasslistUser `json:"Items"`
-}
+// ClasslistPage is the paged envelope around ClasslistUser.
+//
+// Despite the route being named "paged" and reading like enrollment data, it
+// uses the Next-link envelope rather than the PagingInfo bookmark one — the
+// Next value is itself a bookmark URL. Verified against a live tenant, where
+// the bookmark shape decoded to zero people with no error on a 25-person page.
+type ClasslistPage = ObjectListPage[ClasslistUser]
 
 // Upload is one file bound for a dropbox folder. v2.
 type Upload struct {

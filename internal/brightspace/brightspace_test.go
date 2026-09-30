@@ -324,9 +324,17 @@ func TestMyEvents(t *testing.T) {
 	march := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	april := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
 
-	// Empty org unit list means every enrolled course — one call covers the
-	// cross-course planning case rather than fanning out per enrollment.
-	all, err := c.MyEvents(ctx, nil, march, april)
+	// One call spanning several courses is what makes cross-course planning
+	// cheap rather than a fan-out across enrollments. The ids are required:
+	// a live tenant answers 400 for an unscoped query, so the mock refuses one
+	// too rather than being more permissive than the API it stands in for.
+	both := []int{6001, 6002}
+
+	if _, err := c.MyEvents(ctx, nil, march, april); err == nil {
+		t.Error("MyEvents accepted an empty org unit list; a live tenant answers 400")
+	}
+
+	all, err := c.MyEvents(ctx, both, march, april)
 	if err != nil {
 		t.Fatalf("MyEvents: %v", err)
 	}
@@ -354,7 +362,7 @@ func TestMyEvents(t *testing.T) {
 
 	// Range is [start, end): an event exactly at start is in, one exactly at
 	// end is out. Pinned so the boundary cannot drift silently.
-	bounded, err := c.MyEvents(ctx, nil,
+	bounded, err := c.MyEvents(ctx, both,
 		time.Date(2026, 3, 6, 4, 59, 0, 0, time.UTC),
 		time.Date(2026, 3, 20, 3, 59, 0, 0, time.UTC))
 	if err != nil {

@@ -2,10 +2,13 @@ package mcptools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/NabilHasan09/brightspace-assistant/internal/brightspace"
 )
 
 // maxClasslist caps how many people one call returns. A 300-seat lecture would
@@ -41,6 +44,19 @@ func (s *Server) getClasslist(ctx context.Context, _ *mcp.CallToolRequest, args 
 	}
 
 	users, err := s.client.Classlist(ctx, course.Id)
+	if errors.Is(err, brightspace.ErrUnauthorized) {
+		// An instructor who turns the Classlist tool off for their course is a
+		// normal configuration, verified against a live tenant. Reporting it as
+		// an empty roster with a note beats a tool error: the model can say
+		// "that course does not publish its roster" instead of retrying a call
+		// that will never succeed.
+		return nil, getClasslistOutput{
+			Course: course.Code,
+			People: []person{},
+			Note: "This course does not publish its class roster — the instructor has " +
+				"the Classlist tool turned off. Say so rather than guessing who is in the course.",
+		}, nil
+	}
 	if err != nil {
 		return nil, getClasslistOutput{}, fmt.Errorf("reading %s classlist: %w", course.Code, err)
 	}
@@ -55,7 +71,14 @@ func (s *Server) getClasslist(ctx context.Context, _ *mcp.CallToolRequest, args 
 			Username: u.UserName,
 			Online:   u.IsOnline,
 		}
-		if u.RoleId != nil {
+		// The tenant's own spelling wins. WithRoleNames exists for tenants that
+		// send only a number; a live one sends "Learner" or "Instructor"
+		// outright, which is both more accurate and needs no configuration.
+		switch {
+		case u.ClasslistRoleDisplayName != "":
+			p.Role = u.ClasslistRoleDisplayName
+			mapped++
+		case u.RoleId != nil:
 			if name, ok := s.roles[*u.RoleId]; ok {
 				p.Role = name
 				mapped++

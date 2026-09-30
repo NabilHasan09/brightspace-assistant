@@ -1,52 +1,70 @@
-[
-  {
-    "CalendarEventId": 55001,
-    "OrgUnitId": 6001,
-    "Title": "Homework 2 due",
-    "Description": "Submit to the Homework 2 dropbox folder.",
-    "StartDateTime": "2026-03-06T04:59:00.000Z",
-    "EndDateTime": "2026-03-06T04:59:00.000Z",
-    "IsAllDay": false,
-    "Location": ""
-  },
-  {
-    "CalendarEventId": 55002,
-    "OrgUnitId": 6002,
-    "Title": "Proof Assignment 2 due",
-    "Description": "Typeset in LaTeX.",
-    "StartDateTime": "2026-03-13T03:59:00.000Z",
-    "EndDateTime": "2026-03-13T03:59:00.000Z",
-    "IsAllDay": false,
-    "Location": ""
-  },
-  {
-    "CalendarEventId": 55003,
-    "OrgUnitId": 6001,
-    "Title": "Exam 2",
-    "Description": "Covers integration techniques through week 9.",
-    "StartDateTime": "2026-03-19T13:00:00.000Z",
-    "EndDateTime": "2026-03-19T15:00:00.000Z",
-    "IsAllDay": false,
-    "Location": "Room 214"
-  },
-  {
-    "CalendarEventId": 55004,
-    "OrgUnitId": 6001,
-    "Title": "Homework 3 due",
-    "Description": "Submit to the Homework 3 dropbox folder.",
-    "StartDateTime": "2026-03-20T03:59:00.000Z",
-    "EndDateTime": "2026-03-20T03:59:00.000Z",
-    "IsAllDay": false,
-    "Location": ""
-  },
-  {
-    "CalendarEventId": 55005,
-    "OrgUnitId": 6002,
-    "Title": "Spring recess begins",
-    "Description": "No classes.",
-    "StartDateTime": "2026-04-01T04:00:00.000Z",
-    "EndDateTime": "2026-04-08T04:00:00.000Z",
-    "IsAllDay": true,
-    "Location": ""
-  }
-]
+{
+  "Next": null,
+  "Objects": [
+    {
+      "CalendarEventId": 55001,
+      "OrgUnitId": 6001,
+      "Title": "Homework 2 due",
+      "Description": "Submit to the Homework 2 dropbox folder.",
+      "StartDateTime": "2026-03-06T04:59:00.000Z",
+      "EndDateTime": "2026-03-06T04:59:00.000Z",
+      "IsAllDayEvent": false,
+      "LocationName": "",
+      "OrgUnitCode": "MTH1003",
+      "OrgUnitName": "Calculus I",
+      "AssociatedEntity": null
+    },
+    {
+      "CalendarEventId": 55002,
+      "OrgUnitId": 6002,
+      "Title": "Proof Assignment 2 due",
+      "Description": "Typeset in LaTeX.",
+      "StartDateTime": "2026-03-13T03:59:00.000Z",
+      "EndDateTime": "2026-03-13T03:59:00.000Z",
+      "IsAllDayEvent": false,
+      "LocationName": "",
+      "OrgUnitCode": "MTH3005",
+      "OrgUnitName": "Introduction to Proof",
+      "AssociatedEntity": null
+    },
+    {
+      "CalendarEventId": 55003,
+      "OrgUnitId": 6001,
+      "Title": "Exam 2",
+      "Description": "Covers integration techniques through week 9.",
+      "StartDateTime": "2026-03-19T13:00:00.000Z",
+      "EndDateTime": "2026-03-19T15:00:00.000Z",
+      "IsAllDayEvent": false,
+      "LocationName": "Room 214",
+      "OrgUnitCode": "MTH1003",
+      "OrgUnitName": "Calculus I",
+      "AssociatedEntity": null
+    },
+    {
+      "CalendarEventId": 55004,
+      "OrgUnitId": 6001,
+      "Title": "Homework 3 due",
+      "Description": "Submit to the Homework 3 dropbox folder.",
+      "StartDateTime": "2026-03-20T03:59:00.000Z",
+      "EndDateTime": "2026-03-20T03:59:00.000Z",
+      "IsAllDayEvent": false,
+      "LocationName": "",
+      "OrgUnitCode": "MTH1003",
+      "OrgUnitName": "Calculus I",
+      "AssociatedEntity": null
+    },
+    {
+      "CalendarEventId": 55005,
+      "OrgUnitId": 6002,
+      "Title": "Spring recess begins",
+      "Description": "No classes.",
+      "StartDateTime": "2026-04-01T04:00:00.000Z",
+      "EndDateTime": "2026-04-08T04:00:00.000Z",
+      "IsAllDayEvent": true,
+      "LocationName": "",
+      "OrgUnitCode": "MTH3005",
+      "OrgUnitName": "Introduction to Proof",
+      "AssociatedEntity": null
+    }
+  ]
+}
